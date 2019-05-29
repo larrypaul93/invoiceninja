@@ -24,15 +24,15 @@ if (dropzone instanceof Dropzone) {
     dropzone.on('canceled', handleDocumentCanceled);
     dropzone.on('error', handleDocumentError);
     for (var i=0; i < {{ $documentSource }}.length; i++) {
-        var document = {{ $documentSource }}[i];
+        var _document = {{ $documentSource }}[i];
         var mockFile = {
-            name: ko.utils.unwrapObservable(document.name),
-            size: ko.utils.unwrapObservable(document.size),
-            type: ko.utils.unwrapObservable(document.type),
-            public_id: ko.utils.unwrapObservable(document.public_id),
+            name: ko.utils.unwrapObservable(_document.name),
+            size: ko.utils.unwrapObservable(_document.size),
+            type: ko.utils.unwrapObservable(_document.type),
+            public_id: ko.utils.unwrapObservable(_document.public_id),
             status: Dropzone.SUCCESS,
             accepted: true,
-            url: ko.utils.unwrapObservable(document.url),
+            url: ko.utils.unwrapObservable(_document.url),
             mock: true,
             index: i,
         };
@@ -40,9 +40,9 @@ if (dropzone instanceof Dropzone) {
         dropzone.emit('addedfile', mockFile);
         dropzone.emit('complete', mockFile);
 
-        var documentType = ko.utils.unwrapObservable(document.type);
-        var previewUrl = ko.utils.unwrapObservable(document.preview_url);
-        var documentUrl = ko.utils.unwrapObservable(document.url);
+        var documentType = ko.utils.unwrapObservable(_document.type);
+        var previewUrl = ko.utils.unwrapObservable(_document.preview_url);
+        var documentUrl = ko.utils.unwrapObservable(_document.url);
 
         if (previewUrl) {
             dropzone.emit('thumbnail', mockFile, previewUrl);

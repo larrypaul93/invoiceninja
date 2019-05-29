@@ -159,6 +159,16 @@
             {{ Former::populateField('currency_id', $client->account->currency_id) }}
             {{ Former::populateField('currency', $client->account->currency->code) }}
         @endif
+        @if($client->getBillingAddress())
+            {{ Former::populateField('country_id', $client->getBillingAddress()->country) }}
+            {{ Former::populateField('city', $client->getBillingAddress()->city) }}
+            {{ Former::populateField('state', $client->getBillingAddress()->state) }}
+            {{ Former::populateField('address1', $client->getBillingAddress()->address_1) }}
+            {{ Former::populateField('address2', $client->getBillingAddress()->address_2) }}
+            {{ Former::populateField('postal_code', $client->getBillingAddress()->zip) }}
+            {{ Former::populateField('shipping_country_id', $client->account->country_id) }}
+           
+        @endif
     @endif
 
     @if (Utils::isNinjaDev())

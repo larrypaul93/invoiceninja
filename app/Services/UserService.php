@@ -49,6 +49,14 @@ class UserService extends BaseService
     {
         $datatable = new UserDatatable(false);
         $query = $this->userRepo->find($accountId);
+        if(request("sSearch",false)){
+            $query->where(function($query){
+                $search = request("sSearch");
+                $query->where('users.first_name','like',"%".$search."%")
+                ->orwhere('users.last_name','like',"%".$search."%")
+                ->orWhere('users.email','like',"%".$search."%");
+            });
+        }
 
         return $this->datatableService->createDatatable($datatable, $query);
     }

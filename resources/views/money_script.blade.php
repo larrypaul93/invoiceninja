@@ -97,26 +97,19 @@
             return value.replace('.', decimal);
         }
     }
-
-    function formatMoney(value, currencyId, countryId, decorator, precision) {
+    function formatMoney(value, currencyId, countryId, decorator) {
         value = NINJA.parseFloat(value);
 
         if (!currencyId) {
             currencyId = {{ Session::get(SESSION_CURRENCY, DEFAULT_CURRENCY) }};
         }
 
-        var currency = currencyMap[currencyId];
-
         if (!decorator) {
             decorator = '{{ Session::get(SESSION_CURRENCY_DECORATOR, CURRENCY_DECORATOR_SYMBOL) }}';
         }
 
-        if (!precision) {
-            precision = currency.precision;
-        } else if (currency.precision == 0) {
-            precision = 0;
-        }
-
+        var currency = currencyMap[currencyId];
+        var precision = currency.precision;
         var thousand = currency.thousand_separator;
         var decimal = currency.decimal_separator;
         var code = currency.code;
@@ -133,18 +126,26 @@
             }
         }
 
+        var is_negative = false;
+        if(value < 0) {
+            is_negative = true;
+            value = -value;
+        }
+
         value = accounting.formatMoney(value, '', precision, thousand, decimal);
         var symbol = currency.symbol;
 
         if (decorator == 'none') {
-            return value;
+            value;
         } else if (decorator == '{{ CURRENCY_DECORATOR_CODE }}' || ! symbol) {
-            return value + ' ' + code;
+            value = value + ' ' + code;
         } else if (swapSymbol) {
-            return value + ' ' + symbol.trim();
+            value = value + ' ' + symbol.trim();
         } else {
-            return symbol + value;
+            value = symbol + value;
         }
+        if(is_negative) value = "-"+value;
+        return value;
     }
 
 </script>

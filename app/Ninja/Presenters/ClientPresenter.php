@@ -1,8 +1,11 @@
 <?php
 
 namespace App\Ninja\Presenters;
-
+use App\Models\Payment;
+use App\Models\Invoice;
+use Auth;
 use Utils;
+use DB;
 
 class ClientPresenter extends EntityPresenter
 {
@@ -15,6 +18,7 @@ class ClientPresenter extends EntityPresenter
     {
         return $this->entity->shipping_country ? $this->entity->shipping_country->name : '';
     }
+
 
     public function balance()
     {
@@ -45,6 +49,67 @@ class ClientPresenter extends EntityPresenter
         return $account->formatMoney($client->paid_to_date, $client);
     }
 
+    public function admin_paid_to_date(){
+        $client = $this->entity;
+        //$account = $client->account;
+        
+        $paid = Payment::where("client_id",$client->id)->where("account_id",Auth::user()->account_id)
+            ->whereIn("payment_status_id",[PAYMENT_STATUS_COMPLETED,PAYMENT_STATUS_PRE_COMPLETED])
+            ->sum("amount");
+        return $paid;
+    }
+    public function admin_balance(){
+        $client = $this->entity;
+        //$account = $client->account;
+        $paid = Invoice::where("client_id",$client->id)
+            ->where("invoice_status_id",">",1)
+            ->where("invoice_type_id",1)
+            ->where("account_id",Auth::user()->account_id)
+            ->sum("balance");
+        $interest_balance = Invoice::where("client_id",$client->id)
+            ->where("invoice_status_id",">",1)
+            ->where("invoice_type_id",1)
+            ->where("interest",1)
+            ->where("account_id",Auth::user()->account_id)
+            ->whereRaw("DATEDIFF(now(),invoice_date) > 30")
+            ->sum(DB::raw("0.1 * balance / 100 * DATEDIFF(now(),invoice_date)"));
+            
+        return $paid+round($interest_balance,2);  
+        
+    }
+    public function client_total_invoices(){
+        $client = $this->entity;
+        //$account = $client->account;
+        $paid = Invoice::where("client_id",$client->id)
+            ->where("invoice_status_id",">",1)
+            ->where("invoice_type_id",1)
+            ->sum("amount");
+          
+        return $paid;
+    }
+    public function client_balance(){
+        $client = $this->entity;
+        //$account = $client->account;
+        $paid = Invoice::where("client_id",$client->id)
+            ->where("invoice_status_id",">",1)
+            ->where("invoice_type_id",1)
+            ->sum("balance");
+        $interest_balance = Invoice::where("client_id",$client->id)
+        ->where("invoice_status_id",">",1)
+        ->where("invoice_type_id",1)
+        ->where("interest",1)
+        ->whereRaw("DATEDIFF(now(),invoice_date) > 30")
+        ->sum(DB::raw("0.1 * balance / 100 * DATEDIFF(now(),invoice_date)"));
+        return $paid+round($interest_balance,2);
+    }
+    public function client_paid_to_date(){
+        $client = $this->entity;
+        //$account = $client->account;
+        $paid = Payment::where("client_id",$client->id)
+            ->whereIn("payment_status_id",[PAYMENT_STATUS_COMPLETED,PAYMENT_STATUS_PRE_COMPLETED])
+            ->sum("amount");    
+        return $paid;
+    }
     public function paymentTerms()
     {
         $client = $this->entity;
@@ -114,4 +179,6 @@ class ClientPresenter extends EntityPresenter
           return '';
       }
     }
+
+
 }

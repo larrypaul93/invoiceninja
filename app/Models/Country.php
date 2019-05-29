@@ -42,4 +42,7 @@ class Country extends Eloquent
     {
         return $this->name;
     }
+    public function states(){
+        return $this->hasMany("App\Models\State","country_id","iso_3166_2");
+    }
 }

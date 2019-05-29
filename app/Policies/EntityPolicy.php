@@ -79,7 +79,7 @@ class EntityPolicy
         return $user->hasPermission('edit_all') || $user->id == $ownerUserId;
     }
 
-    private static function checkModuleEnabled(User $user, $item)
+    public static function checkModuleEnabled(User $user, $item)
     {
         $entityType = is_string($item) ? $item : $item->getEntityType();
         

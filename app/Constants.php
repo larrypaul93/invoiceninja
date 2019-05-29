@@ -2,7 +2,6 @@
 
 if (! defined('APP_NAME')) {
     define('APP_NAME', env('APP_NAME', 'Invoice Ninja'));
-    define('APP_DOMAIN', env('APP_DOMAIN', 'invoiceninja.com'));
     define('CONTACT_EMAIL', env('MAIL_FROM_ADDRESS', env('MAIL_USERNAME')));
     define('CONTACT_NAME', env('MAIL_FROM_NAME'));
     define('SITE_URL', env('APP_URL'));
@@ -28,6 +27,7 @@ if (! defined('APP_NAME')) {
     define('ENTITY_TOKEN', 'token');
     define('ENTITY_TAX_RATE', 'tax_rate');
     define('ENTITY_PRODUCT', 'product');
+    define('ENTITY_CATEGORY', 'category');
     define('ENTITY_ACTIVITY', 'activity');
     define('ENTITY_VENDOR', 'vendor');
     define('ENTITY_VENDOR_ACTIVITY', 'vendor_activity');
@@ -41,7 +41,6 @@ if (! defined('APP_NAME')) {
     define('ENTITY_RECURRING_EXPENSE', 'recurring_expense');
     define('ENTITY_CUSTOMER', 'customer');
     define('ENTITY_SUBSCRIPTION', 'subscription');
-
     define('INVOICE_TYPE_STANDARD', 1);
     define('INVOICE_TYPE_QUOTE', 2);
 
@@ -149,7 +148,7 @@ if (! defined('APP_NAME')) {
     define('MAX_LOGO_FILE_SIZE', 200); // KB
     define('MAX_FAILED_LOGINS', 10);
     define('MAX_INVOICE_ITEMS', env('MAX_INVOICE_ITEMS', 100));
-    define('MAX_DOCUMENT_SIZE', env('MAX_DOCUMENT_SIZE', 10000)); // KB
+    define('MAX_DOCUMENT_SIZE', env('MAX_DOCUMENT_SIZE', 100000)); // KB
     define('MAX_EMAIL_DOCUMENTS_SIZE', env('MAX_EMAIL_DOCUMENTS_SIZE', 10000)); // Total KB
     define('MAX_ZIP_DOCUMENTS_SIZE', env('MAX_EMAIL_DOCUMENTS_SIZE', 30000)); // Total KB (uncompressed)
     define('DOCUMENT_PREVIEW_SIZE', env('DOCUMENT_PREVIEW_SIZE', 300)); // pixels
@@ -194,6 +193,8 @@ if (! defined('APP_NAME')) {
     define('INVOICE_STATUS_APPROVED', 4);
     define('INVOICE_STATUS_PARTIAL', 5);
     define('INVOICE_STATUS_PAID', 6);
+    define('INVOICE_STATUS_VOIDED', 7);
+    define('INVOICE_STATUS_PRE_AUTH', 8);
     define('INVOICE_STATUS_OVERDUE', -1);
     define('INVOICE_STATUS_UNPAID', -2);
 
@@ -203,6 +204,9 @@ if (! defined('APP_NAME')) {
     define('PAYMENT_STATUS_COMPLETED', 4);
     define('PAYMENT_STATUS_PARTIALLY_REFUNDED', 5);
     define('PAYMENT_STATUS_REFUNDED', 6);
+    define('PAYMENT_STATUS_PRE_AUTH',7);
+    define('PAYMENT_STATUS_PRE_COMPLETED',8);
+    define('PAYMENT_STATUS_RETURN',9);
 
     define('TASK_STATUS_LOGGED', 1);
     define('TASK_STATUS_RUNNING', 2);
@@ -216,6 +220,7 @@ if (! defined('APP_NAME')) {
     define('EXPENSE_STATUS_PAID', 5);
     define('EXPENSE_STATUS_UNPAID', 6);
 
+    define('CUSTOM_DESIGN', 11);
     define('CUSTOM_DESIGN1', 11);
     define('CUSTOM_DESIGN2', 12);
     define('CUSTOM_DESIGN3', 13);
@@ -284,6 +289,7 @@ if (! defined('APP_NAME')) {
     define('GATEWAY_TWO_CHECKOUT', 27);
     define('GATEWAY_BEANSTREAM', 29);
     define('GATEWAY_PSIGATE', 30);
+    define('GATEWAY_MOOLAH', 31);
     define('GATEWAY_BITPAY', 42);
     define('GATEWAY_DWOLLA', 43);
     define('GATEWAY_CHECKOUT_COM', 47);
@@ -292,7 +298,6 @@ if (! defined('APP_NAME')) {
     define('GATEWAY_BRAINTREE', 61);
     define('GATEWAY_CUSTOM', 62);
     define('GATEWAY_GOCARDLESS', 64);
-
     // The customer exists, but only as a local concept
     // The remote gateway doesn't understand the concept of customers
     define('CUSTOMER_REFERENCE_LOCAL', 'local');
@@ -317,7 +322,7 @@ if (! defined('APP_NAME')) {
     define('NINJA_APP_URL', env('NINJA_APP_URL', 'https://app.invoiceninja.com'));
     define('NINJA_DOCS_URL', env('NINJA_DOCS_URL', 'http://docs.invoiceninja.com/en/latest'));
     define('NINJA_DATE', '2000-01-01');
-    define('NINJA_VERSION', '4.0.0' . env('NINJA_VERSION_SUFFIX'));
+    define('NINJA_VERSION', '4.0.1' . env('NINJA_VERSION_SUFFIX'));
 
     define('SOCIAL_LINK_FACEBOOK', env('SOCIAL_LINK_FACEBOOK', 'https://www.facebook.com/invoiceninja'));
     define('SOCIAL_LINK_TWITTER', env('SOCIAL_LINK_TWITTER', 'https://twitter.com/invoiceninja'));
@@ -339,8 +344,8 @@ if (! defined('APP_NAME')) {
     define('OFX_HOME_URL', env('OFX_HOME_URL', 'http://www.ofxhome.com/index.php/home/directory/all'));
     define('GOOGLE_ANALYITCS_URL', env('GOOGLE_ANALYITCS_URL', 'https://www.google-analytics.com/collect'));
     define('TRANSIFEX_URL', env('TRANSIFEX_URL', 'https://www.transifex.com/invoice-ninja/invoice-ninja'));
-    define('IP_LOOKUP_URL', env('IP_LOOKUP_URL', 'http://whatismyipaddress.com/ip/'));
     define('CHROME_PDF_HELP_URL', 'https://support.google.com/chrome/answer/6213030?hl=en');
+    define('IP_LOOKUP_URL', env('IP_LOOKUP_URL', 'http://whatismyipaddress.com/ip/'));
     define('FIREFOX_PDF_HELP_URL', 'https://support.mozilla.org/en-US/kb/view-pdf-files-firefox');
 
     define('MSBOT_LOGIN_URL', 'https://login.microsoftonline.com/common/oauth2/v2.0/token');
@@ -348,7 +353,7 @@ if (! defined('APP_NAME')) {
     define('SKYPE_API_URL', 'https://apis.skype.com/v3');
     define('MSBOT_STATE_URL', 'https://state.botframework.com/v3');
     define('INVOICEPLANE_IMPORT', 'https://github.com/turbo124/Plane2Ninja');
-
+    
     define('TIME_TRACKER_USER_AGENT', 'Time Tracker');
 
     define('BOT_PLATFORM_WEB_APP', 'WebApp');
@@ -361,6 +366,7 @@ if (! defined('APP_NAME')) {
     define('DB_NINJA_2', 'db-ninja-2');
 
     define('COUNT_FREE_DESIGNS', 4);
+    define('COUNT_FREE_DESIGNS_SELF_HOST', 5); // include the custom design
     define('PRODUCT_ONE_CLICK_INSTALL', 1);
     define('PRODUCT_INVOICE_DESIGNS', 2);
     define('PRODUCT_WHITE_LABEL', 3);
@@ -436,6 +442,9 @@ if (! defined('APP_NAME')) {
     define('GATEWAY_TYPE_APPLE_PAY', 11);
     define('GATEWAY_TYPE_TOKEN', 'token');
 
+    define('REMINDER1', 'reminder1');
+    define('REMINDER2', 'reminder2');
+    define('REMINDER3', 'reminder3');
     define('TEMPLATE_INVOICE', 'invoice');
     define('TEMPLATE_QUOTE', 'quote');
     define('TEMPLATE_PARTIAL', 'partial');
@@ -567,9 +576,10 @@ if (! defined('APP_NAME')) {
     define('INVOICE_FIELDS_CLIENT', 'client_fields');
     define('INVOICE_FIELDS_INVOICE', 'invoice_fields');
     define('INVOICE_FIELDS_ACCOUNT', 'account_fields');
+
     define('INVOICE_FIELDS_PRODUCT', 'product_fields');
     define('INVOICE_FIELDS_TASK', 'task_fields');
-
+ 
     $creditCards = [
                 1 => ['card' => 'images/credit_cards/Test-Visa-Icon.png', 'text' => 'Visa'],
                 2 => ['card' => 'images/credit_cards/Test-MasterCard-Icon.png', 'text' => 'Master Card'],
@@ -598,11 +608,12 @@ if (! defined('APP_NAME')) {
         'fonts' => 'App\Models\Font',
         'banks' => 'App\Models\Bank',
     ];
+
     define('CACHED_TABLES', serialize($cachedTables));
 
     // Fix for mPDF: https://github.com/kartik-v/yii2-mpdf/issues/9
     define('_MPDF_TTFONTDATAPATH', storage_path('framework/cache/'));
-
+    
     function uctrans($text, $data = [])
     {
         $locale = Session::get(SESSION_LOCALE);

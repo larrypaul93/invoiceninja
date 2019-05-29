@@ -5,6 +5,7 @@ namespace App\Ninja\Repositories;
 use App\Models\Credit;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Document;
 use DB;
 use Utils;
 use Auth;
@@ -22,13 +23,13 @@ class PaymentRepository extends BaseRepository
                     ->join('accounts', 'accounts.id', '=', 'payments.account_id')
                     ->join('clients', 'clients.id', '=', 'payments.client_id')
                     ->join('invoices', 'invoices.id', '=', 'payments.invoice_id')
-                    ->join('contacts', 'contacts.client_id', '=', 'clients.id')
+                    ->leftjoin('contacts', 'contacts.client_id', '=', 'clients.id')
                     ->join('payment_statuses', 'payment_statuses.id', '=', 'payments.payment_status_id')
                     ->leftJoin('payment_types', 'payment_types.id', '=', 'payments.payment_type_id')
                     ->leftJoin('account_gateways', 'account_gateways.id', '=', 'payments.account_gateway_id')
                     ->leftJoin('gateways', 'gateways.id', '=', 'account_gateways.gateway_id')
                     ->where('payments.account_id', '=', \Auth::user()->account_id)
-                    ->where('contacts.is_primary', '=', true)
+                    //->where('contacts.is_primary', '=', true)
                     ->where('contacts.deleted_at', '=', null)
                     ->where('invoices.is_deleted', '=', false)
                     ->select('payments.public_id',
@@ -70,7 +71,7 @@ class PaymentRepository extends BaseRepository
                         'gateways.name as gateway_name',
                         'gateways.id as gateway_id',
                         'payment_statuses.name as status'
-                    );
+                    )->groupBy("payments.id");
 
         $this->applyFilters($query, ENTITY_PAYMENT);
 
@@ -188,9 +189,21 @@ class PaymentRepository extends BaseRepository
         } else {
             $payment->payment_date = date('Y-m-d');
         }
+        if (isset($input['deposited'])) {
+            $payment->deposited = Utils::toSqlDate($input['deposited']);
+        } 
 
-        $payment->fill($input);
+        if (isset($input['transaction_reference'])) {
+            $payment->transaction_reference = trim($input['transaction_reference']);
+        }
 
+        if (isset($input['private_notes'])) {
+            $payment->private_notes = trim($input['private_notes']);
+        }
+        if(isset($input['public_notes'])){
+            $payment->public_notes = trim($input['public_notes']);
+        }
+        
         if (! $publicId) {
             $clientId = $input['client_id'];
             $amount = Utils::parseFloat($input['amount']);
@@ -214,6 +227,32 @@ class PaymentRepository extends BaseRepository
         }
 
         $payment->save();
+
+        // Documents
+        $document_ids = ! empty($input['document_ids']) ? array_map('intval', $input['document_ids']) : [];
+        ;
+        foreach ($document_ids as $document_id) {
+            // check document completed upload before user submitted form
+            if ($document_id) {
+                $document = Document::scope($document_id)->first();
+                if ($document && Auth::user()->can('edit', $document)) {
+                    $document->invoice_id = null;
+                    $document->expense_id = null;
+                    $document->payment_id = $payment->id;
+                    $document->save();
+                }
+            }
+        }
+
+        // prevent loading all of the documents if we don't have to
+        if (! $payment->wasRecentlyCreated) {
+            foreach ($payment->documents as $document) {
+                if (! in_array($document->public_id, $document_ids)) {
+                    // Not checking permissions; deleting a document is just editing the invoice
+                    $document->delete();
+                }
+            }
+        }
 
         return $payment;
     }

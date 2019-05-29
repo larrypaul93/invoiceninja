@@ -79,7 +79,7 @@ class UserController extends BaseController
 
         return redirect("users/$publicId/edit");
     }
-
+    
     public function edit($publicId)
     {
         $user = User::where('account_id', '=', Auth::user()->account_id)
@@ -211,6 +211,7 @@ class UserController extends BaseController
             $user->last_name = trim(Input::get('last_name'));
             $user->username = trim(Input::get('email'));
             $user->email = trim(Input::get('email'));
+            $user->signature = trim(Input::get('signature'));
             if (Auth::user()->hasFeature(FEATURE_USER_PERMISSIONS)) {
                 $user->is_admin = boolval(Input::get('is_admin'));
                 $user->permissions = Input::get('permissions');
@@ -225,6 +226,7 @@ class UserController extends BaseController
             $user->last_name = trim(Input::get('last_name'));
             $user->username = trim(Input::get('email'));
             $user->email = trim(Input::get('email'));
+            $user->signature = trim(Input::get('signature'));
             $user->registered = true;
             $user->password = strtolower(str_random(RANDOM_KEY_LENGTH));
             $user->confirmation_code = strtolower(str_random(RANDOM_KEY_LENGTH));
@@ -333,10 +335,12 @@ class UserController extends BaseController
     {
         $oldUserId = Auth::user()->id;
         $referer = Request::header('referer');
-        $account = $this->accountRepo->findUserAccounts($newUserId, $oldUserId);
+       // $account = $this->accountRepo->findUserAccounts($newUserId, $oldUserId);
 
-        if ($account) {
-            if ($account->hasUserId($newUserId) && $account->hasUserId($oldUserId)) {
+        if ($newUserId) {
+            Session::put("account_id", $newUserId);
+            Session::put('_token', str_random(40));
+            if (false && $account->hasUserId($newUserId) && $account->hasUserId($oldUserId)  ) {
                 Auth::loginUsingId($newUserId);
                 Auth::user()->account->loadLocalizationSettings();
 

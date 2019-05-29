@@ -1,4 +1,4 @@
-@extends('public.header')
+    @extends('public.header')
 
 @section('head')
     @parent
@@ -6,6 +6,10 @@
     <style type="text/css">
         body {
             line-height: 1.5em;
+        }
+
+        div.main-container {
+            min-height: 700px;
         }
 
         #main-row {
@@ -35,8 +39,8 @@
             }
 
             #main-row {
-                margin-top: 80px;
-                margin-bottom: 80px;
+                margin-top: 100px;
+                margin-bottom: 100px;
             }
         }
 
@@ -267,7 +271,10 @@
         table.table thead .sorting_desc:after { content: '' !important }
         table.table thead .sorting_asc_disabled:after { content: '' !important }
         table.table thead .sorting_desc_disabled:after { content: '' !important }
-
+        
+        #account-row > div.address-details {
+            padding: 20px;
+        }
     </style>
 
 @stop
@@ -283,24 +290,23 @@
                 @if ($contact->first_name || $contact->last_name)
                     {{ $contact->first_name.' '.$contact->last_name }}<br>
                 @endif
-                @if ($client->address1)
-                    {{ $client->address1 }}<br/>
-                @endif
-                @if ($client->address2)
-                    {{ $client->address2 }}<br/>
-                @endif
-                @if ($client->getCityState())
-                    {{ $client->getCityState() }}<br/>
-                @endif
-                @if ($client->country)
-                    {{ $client->country->name }}<br/>
-                @endif
+                @if ($client->getMainAddress())
+                    @if ($client->getMainAddress()->address_1)
+                        {{ $client->getMainAddress()->address_1 }}<br/>
+                    @endif
+                    @if ($client->getMainAddress()->address_2)
+                        {{ $client->getMainAddress()->address_2 }}<br/>
+                    @endif
+                    @if ($client->getMainAddress()->city || $client->getMainAddress()->state)
+                        {{ $client->getMainAddress()->city.", ".$client->getMainAddress()->state." ".$client->getMainAddress()->zip }}<br>
+                    @endif  
+                @endif      
                 <br>
                 @if ($contact->email)
                     {!! HTML::mailto($contact->email, $contact->email) !!}<br>
                 @endif
                 @if ($client->website)
-                    {{ $client->present()->websiteLink }}<br>
+                    {!! HTML::link($client->website, $client->website) !!}<br>
                 @endif
                 @if ($contact->phone)
                     {{ $contact->phone }}<br>
@@ -313,7 +319,7 @@
                         {{ trans('texts.total_invoiced') }}
                     </div>
                     <div class="amount">
-                        {{ Utils::formatMoney($client->paid_to_date + $client->balance, $client->currency_id ?: $account->currency_id) }}
+                        {{ Utils::formatMoney($client->present()->client_balance + $client->present()->client_paid_to_date, $client->currency_id ?: $account->currency_id) }}
                     </div>
                 </div>
             </div>
@@ -324,7 +330,7 @@
                         {{ trans('texts.paid_to_date') }}
                     </div>
                     <div class="amount">
-                        {{ Utils::formatMoney($client->paid_to_date, $client->currency_id ?: $account->currency_id) }}
+                        {{ Utils::formatMoney($client->present()->client_paid_to_date, $client->currency_id ?: $account->currency_id) }}
                     </div>
                 </div>
             </div>
@@ -335,25 +341,32 @@
                         {{ trans('texts.open_balance') }}
                     </div>
                     <div class="amount">
-                        {{ Utils::formatMoney($client->balance, $client->currency_id ?: $account->currency_id) }}
+                        {{ Utils::formatMoney($client->present()->client_balance, $client->currency_id ?: $account->currency_id) }}
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-xs-12">
-                @if (!empty($account->getTokenGatewayId()))
-                    <div class="pull-left">
-                        @include('payments.paymentmethods_list')
-                    </div>
-                @endif
-                @if ($client->hasRecurringInvoices())
-                    <div class="pull-right">
-                        {!! Button::primary(trans("texts.recurring_invoices"))->asLinkTo(URL::to('/client/invoices/recurring')) !!}
-                    </div>
-                @endif
-            </div>
+        @if (!empty($account->getTokenGatewayId()))
+                <div class="row">
+                    <div class="col-xs-12">
+                    @include('payments.paymentmethods_list')
+                </div>
+        </div>
+        @endif
+
+        <div style="min-height: 550px" class="hide">
+            {!! Datatable::table()
+                ->addColumn(
+                    trans('texts.date'),
+                    trans('texts.message'),
+                    trans('texts.balance'),
+                    trans('texts.adjustment'))
+                ->setUrl(route('api.client.activity'))
+                ->setOptions('bFilter', false)
+                ->setOptions('aaSorting', [['0', 'desc']])
+                ->setOptions('sPaginationType', 'bootstrap')
+                ->render('datatable') !!}
         </div>
 
         <div class="row" id="account-row">
@@ -377,9 +390,7 @@
                 @if ($account->getCityState())
                     {{ $account->getCityState() }}<br/>
                 @endif
-                @if ($account->country)
-                    {{ $account->country->name }}
-                @endif
+                
             </div>
             <div class="col-md-3 phone-web-details">
                 <div class="inner">

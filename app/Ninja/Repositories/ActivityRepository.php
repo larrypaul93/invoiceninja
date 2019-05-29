@@ -38,6 +38,28 @@ class ActivityRepository
         $activity->$keyField = $entity->id;
 
         $activity->ip = Request::getClientIp();
+        $_activity = Activity::where("user_id",$activity->user_id)
+                ->where("account_id",$activity->account_id)
+                ->where("activity_type_id",$activity->activity_type_id)
+                ->where("ip",$activity->ip)
+                ->where("client_id",$activity->client_id)
+                ->where("created_at",date("Y-m-d H:i:s"))
+                ->first();
+
+        if($_activity){
+            $activity = $_activity;
+            $activity = Utils::copyContext($activity, $entity);
+            $activity = Utils::copyContext($activity, $altEntity);
+
+            $activity->activity_type_id = $activityTypeId;
+            $activity->adjustment = $balanceChange;
+            $activity->client_id = $client ? $client->id : 0;
+            $activity->balance = $client ? ($client->balance + $balanceChange) : 0;
+            $activity->notes = $notes ?: '';
+
+            $keyField = $entity->getKeyField();
+            $activity->$keyField = $entity->id;
+        }
         $activity->save();
 
         if ($client) {
@@ -78,12 +100,11 @@ class ActivityRepository
                     ->leftJoin('tasks', 'tasks.id', '=', 'activities.task_id')
                     ->leftJoin('expenses', 'expenses.id', '=', 'activities.expense_id')
                     ->where('clients.id', '=', $clientId)
-                    ->where('contacts.is_primary', '=', 1)
+                   // ->where('contacts.is_primary', '=', 1)
                     ->whereNull('contacts.deleted_at')
                     ->select(
                         DB::raw('COALESCE(clients.currency_id, accounts.currency_id) currency_id'),
                         DB::raw('COALESCE(clients.country_id, accounts.country_id) country_id'),
-                        'activities.id',
                         'activities.created_at',
                         'activities.contact_id',
                         'activities.activity_type_id',
@@ -112,6 +133,6 @@ class ActivityRepository
                         'tasks.public_id as task_public_id',
                         'expenses.public_notes as expense_public_notes',
                         'expenses.public_id as expense_public_id'
-                    );
+                    )->distinct('activities.created_at');
     }
 }

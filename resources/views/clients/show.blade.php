@@ -89,13 +89,34 @@
     <div class="panel-body">
 	<div class="row">
 
-		<div class="col-md-3">
+		<div class="col-md-4">
 			<h3>{{ trans('texts.details') }}</h3>
-            @if ($client->id_number)
-                <p><i class="fa fa-id-number" style="width: 20px"></i>{{ trans('texts.id_number').': '.$client->id_number }}</p>
-            @endif
+            <div>{{$client->getDisplayName()}}</div>
+
             @if ($client->vat_number)
-		  	   <p><i class="fa fa-vat-number" style="width: 20px"></i>{{ trans('texts.vat_number').': '.$client->vat_number }}</p>
+		  	   <div><i class="fa fa-vat-number" style="width: 20px"></i>{{ trans('texts.vat_number').': '.$client->vat_number }}</div>
+            @endif
+
+            @if ($client->getMainAddress())
+               <div> {{ $client->getMainAddress()->address_1 }}</div>
+
+                <div>{{ $client->getMainAddress()->city.",".$client->getMainAddress()->state." ".$client->getMainAddress()->zip }}</div>
+
+
+            @endif
+            <p>&nbsp;</p>
+            <div><strong>Contact Info: </strong></div>
+            @if ($client->work_phone)
+                <div><i class="fa fa-phone" style="width: 20px"></i>Phone (Business): {{ $client->work_phone }}</div>
+
+            @endif
+            @if ($client->phone_main)
+                <div><i class="fa fa-phone" style="width: 20px"></i>Phone (Main): {{ $client->phone_main }}</div>
+
+            @endif
+            @if ($client->phone_cell)
+                <div><i class="fa fa-phone" style="width: 20px"></i>Phone (Cell): {{ $client->phone_cell }}</div>
+
             @endif
 
             @if ($client->account->custom_client_label1 && $client->custom_value1)
@@ -105,19 +126,7 @@
                 {{ $client->account->custom_client_label2 . ': ' . $client->custom_value2 }}<br/>
             @endif
 
-            @if ($client->work_phone)
-                <i class="fa fa-phone" style="width: 20px"></i>{{ $client->work_phone }}
-            @endif
 
-            @if (floatval($client->task_rate))
-                <p>{{ trans('texts.task_rate') }}: {{ Utils::roundSignificant($client->task_rate) }}</p>
-            @endif
-
-            <p/>
-
-            @if ($client->public_notes)
-                <p><i>{{ $client->public_notes }}</i></p>
-            @endif
 
             @if ($client->private_notes)
                 <p><i>{{ $client->private_notes }}</i></p>
@@ -137,66 +146,28 @@
             @if ($client->language)
                 <p><i class="fa fa-language" style="width: 20px"></i>{{ $client->language->name }}</p>
             @endif
-
+            @if ($client->id_number)
+                <p><i class="fa fa-id-number" style="width: 20px"></i>Account No.{{$client->id_number }}</p>
+            @endif
             <p>{{ $client->present()->paymentTerms }}</p>
-
-            <div class="text-muted" style="padding-top:8px">
-            @if ($client->show_tasks_in_portal)
-                • {{ trans('texts.can_view_tasks') }}<br/>
-            @endif
-            @if ($client->account->hasReminders() && ! $client->send_reminders)
-                • {{ trans('texts.is_not_sent_reminders') }}</br>
-            @endif
-            </div>
 		</div>
-
         <div class="col-md-3">
-			<h3>{{ trans('texts.address') }}</h3>
-
-            {!! $client->present()->address(ADDRESS_BILLING) !!}<br/>
-            {!! $client->present()->address(ADDRESS_SHIPPING) !!}
-
-        </div>
-
-		<div class="col-md-3">
-			<h3>{{ trans('texts.contacts') }}</h3>
-		  	@foreach ($client->contacts as $contact)
-                @if ($contact->first_name || $contact->last_name)
-                    <b>{{ $contact->first_name.' '.$contact->last_name }}</b><br/>
-                @endif
-                @if ($contact->email)
-                    <i class="fa fa-envelope" style="width: 20px"></i>{!! HTML::mailto($contact->email, $contact->email) !!}<br/>
-                @endif
-                @if ($contact->phone)
-                    <i class="fa fa-phone" style="width: 20px"></i>{{ $contact->phone }}<br/>
-                @endif
-
-                @if ($client->account->custom_contact_label1 && $contact->custom_value1)
-                    {{ $client->account->custom_contact_label1 . ': ' . $contact->custom_value1 }}<br/>
-                @endif
-                @if ($client->account->custom_contact_label2 && $contact->custom_value2)
-                    {{ $client->account->custom_contact_label2 . ': ' . $contact->custom_value2 }}<br/>
-                @endif
-
-                @if (Auth::user()->confirmed && $client->account->enable_client_portal)
-                    <i class="fa fa-dashboard" style="width: 20px"></i><a href="{{ $contact->link }}"
-                        onclick="window.open('{{ $contact->link }}?silent=true', '_blank');return false;">{{ trans('texts.view_client_portal') }}
-                    </a><br/>
-                @endif
+            @if ($client->showMap())
+                <div id="map"></div>
                 <br/>
-		  	@endforeach
-		</div>
+            @endif
+        </div>
 
 		<div class="col-md-3">
 			<h3>{{ trans('texts.standing') }}
 			<table class="table" style="width:100%">
 				<tr>
 					<td><small>{{ trans('texts.paid_to_date') }}</small></td>
-					<td style="text-align: right">{{ Utils::formatMoney($client->paid_to_date, $client->getCurrencyId()) }}</td>
+					<td style="text-align: right">{{ Utils::formatMoney($client->present()->admin_paid_to_date, $client->getCurrencyId()) }}</td>
 				</tr>
 				<tr>
 					<td><small>{{ trans('texts.balance') }}</small></td>
-					<td style="text-align: right">{{ Utils::formatMoney($client->balance, $client->getCurrencyId()) }}</td>
+					<td style="text-align: right">{{ Utils::formatMoney($client->present()->admin_balance, $client->getCurrencyId()) }}</td>
 				</tr>
 				@if ($credit > 0)
 				<tr>
@@ -211,19 +182,18 @@
     </div>
     </div>
 
-    @if ($client->showMap())
-        <div id="map"></div>
-        <br/>
-    @endif
+
 
 	<ul class="nav nav-tabs nav-justified">
-		{!! Form::tab_link('#activity', trans('texts.activity'), true) !!}
+
+        {!! Form::tab_link('#activity', trans('texts.activity'), true) !!}
+        {!! Form::tab_link('#contacts', trans('texts.contacts')) !!}
         @if ($hasTasks && Utils::isPro())
             {!! Form::tab_link('#tasks', trans('texts.tasks')) !!}
         @endif
-		@if ($hasQuotes && Utils::isPro())
+
 			{!! Form::tab_link('#quotes', trans('texts.quotes')) !!}
-		@endif
+
         @if ($hasRecurringInvoices)
             {!! Form::tab_link('#recurring_invoices', trans('texts.recurring')) !!}
         @endif
@@ -233,6 +203,7 @@
 	</ul><br/>
 
 	<div class="tab-content">
+
 
         <div class="tab-pane active" id="activity">
 			{!! Datatable::table()
@@ -250,6 +221,13 @@
 		    	->setOptions('aaSorting', [['0', 'desc']])
 		    	->render('datatable') !!}
         </div>
+        <div class="tab-pane " id="contacts">
+            @include('list', [
+                'entityType' => ENTITY_CONTACT,
+                'datatable' => new \App\Ninja\Datatables\ContactDatatable(true, true),
+                'clientId' => $client->public_id,
+            ])
+        </div>
 
     @if ($hasTasks)
         <div class="tab-pane" id="tasks">
@@ -262,7 +240,7 @@
     @endif
 
 
-    @if (Utils::hasFeature(FEATURE_QUOTES) && $hasQuotes)
+
         <div class="tab-pane" id="quotes">
             @include('list', [
                 'entityType' => ENTITY_QUOTE,
@@ -270,7 +248,7 @@
                 'clientId' => $client->public_id,
             ])
         </div>
-    @endif
+
 
     @if ($hasRecurringInvoices)
         <div class="tab-pane" id="recurring_invoices">
@@ -313,11 +291,11 @@
     var loadedTabs = {};
 
 	$(function() {
-		$('.normalDropDown:not(.dropdown-toggle)').click(function(event) {
-            openUrlOnClick('{{ URL::to('clients/' . $client->public_id . '/edit') }}', event);
+		$('.normalDropDown:not(.dropdown-toggle)').click(function() {
+			window.location = '{{ URL::to('clients/' . $client->public_id.'/edit' ) }}';
 		});
-		$('.primaryDropDown:not(.dropdown-toggle)').click(function(event) {
-            openUrlOnClick('{{ URL::to('clients/statement/' . $client->public_id ) }}', event);
+		$('.primaryDropDown:not(.dropdown-toggle)').click(function() {
+			window.location = '{{ URL::to('clients/statement/' . $client->public_id ) }}';
 		});
 
         // load datatable data when tab is shown and remember last tab selected
@@ -327,7 +305,7 @@
           if (isStorageSupported()) {
               localStorage.setItem('client_tab', target);
           }
-          if (!loadedTabs.hasOwnProperty(target) && window['load_' + target]) {
+          if (!loadedTabs.hasOwnProperty(target)) {
             loadedTabs[target] = true;
             window['load_' + target]();
           }
@@ -336,8 +314,7 @@
         var tab = window.location.hash || (localStorage.getItem('client_tab') || '');
         tab = tab.replace('#', '');
         var selector = '.nav-tabs a[href="#' + tab + '"]';
-
-        if (tab && tab != 'activity' && $(selector).length && window['load_' + tab]) {
+        if (tab && tab != 'activity' && $(selector).length) {
             $(selector).tab('show');
         } else {
             window['load_activity']();

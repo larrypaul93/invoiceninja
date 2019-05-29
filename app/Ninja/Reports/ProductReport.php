@@ -29,11 +29,12 @@ class ProductReport extends AbstractReport
                         ->orderBy('name')
                         ->withArchived()
                         ->with('contacts')
-                        ->with(['invoices' => function ($query) use ($statusIds) {
+                        ->with(['invoices' => function ($query) use ($statusIds,$account) {
                             $query->invoices()
                                   ->withArchived()
                                   ->statusIds($statusIds)
                                   ->where('invoice_date', '>=', $this->startDate)
+                                  ->where('account_id', '=', $account->id)
                                   ->where('invoice_date', '<=', $this->endDate)
                                   ->with(['invoice_items']);
                         }]);

@@ -25,12 +25,13 @@ class AgingReport extends AbstractReport
                         ->orderBy('name')
                         ->withArchived()
                         ->with('contacts')
-                        ->with(['invoices' => function ($query) {
+                        ->with(['invoices' => function ($query) use($account){
                             $query->invoices()
                                   ->whereIsPublic(true)
                                   ->withArchived()
                                   ->where('balance', '>', 0)
                                   ->where('invoice_date', '>=', $this->startDate)
+                                  ->where('account_id', '=', $account->id)
                                   ->where('invoice_date', '<=', $this->endDate)
                                   ->with(['invoice_items']);
                         }]);

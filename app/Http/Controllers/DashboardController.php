@@ -86,6 +86,7 @@ class DashboardController extends BaseController
             'showExpenses' => count($expenses) && $account->isModuleEnabled(ENTITY_EXPENSE),
             'headerClass' => in_array(\App::getLocale(), ['lt', 'pl', 'cs', 'sl', 'tr_TR']) ? 'in-large' : 'in-thin',
             'footerClass' => in_array(\App::getLocale(), ['lt', 'pl', 'cs', 'sl', 'tr_TR']) ? '' : 'in-thin',
+            
         ];
 
         if ($showBlueVinePromo) {

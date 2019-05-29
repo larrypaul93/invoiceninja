@@ -24,10 +24,11 @@ class TaxRateReport extends AbstractReport
                         ->orderBy('name')
                         ->withArchived()
                         ->with('contacts')
-                        ->with(['invoices' => function ($query) {
+                        ->with(['invoices' => function ($query) use($account) {
                             $query->with('invoice_items')
                                 ->withArchived()
                                 ->invoices()
+                                ->where('account_id', '=', $account->id)
                                 ->where('is_public', '=', true);
                             if ($this->options['date_field'] == FILTER_INVOICE_DATE) {
                                 $query->where('invoice_date', '>=', $this->startDate)

@@ -1,10 +1,10 @@
-<div class="modal fade" id="emailModal" tabindex="-1" role="dialog" aria-labelledby="emailModalLabel" aria-hidden="true" style="z-index:10000">
+<div class="modal fade" id="emailModal" tabindex="-1" role="dialog" aria-labelledby="emailModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content" style="background-color: #f8f8f8">
 
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                <h4 class="modal-title" id="emailModalLabel">{{ trans($invoice->isQuote() ? 'texts.email_quote' : 'texts.email_invoice') }}</h4>
+                <h4 class="modal-title" id="emailModalLabel">{{ trans('texts.email_invoice') }}</h4>
             </div>
 
             <div class="container" style="width: 100%; padding-bottom: 0px !important">
@@ -18,14 +18,9 @@
                     {!! Former::select('template_type')
                             ->label('template')
                             ->onchange('loadTemplate()')
-                            ->options([
-                                $invoice->getEntityType() => trans('texts.initial_email'),
-                                'reminder1' => trans('texts.first_reminder'),
-                                'reminder2' => trans('texts.second_reminder'),
-                                'reminder3' => trans('texts.third_reminder'),
-                            ]) !!}
+                            ->fromQuery($templates, function($model) { return $model->name; }, 'id') !!}
                 @endif
-
+                {!! Former::text('send_at')->addClass("datetimepicker")->label("Send At") !!}
                 <br/>
                 <div role="tabpanel">
                     <ul class="nav nav-tabs" role="tablist" style="border: none">
@@ -49,30 +44,26 @@
                         <div style="padding:10px 14px 0px 14px">
                             <div id="emailSubjectDiv"></div>
                             <br/>
-                            <div id="emailBodyDiv"></div>
+                            <div id="emailBodyDiv"><iframe></iframe></div>
                         </div>
                     </div>
                     <div role="tabpanel" class="tab-pane" id="customize">
-                        {{ Former::setOption('TwitterBootstrap3.labelWidths.large', 0) }}
-                        {{ Former::setOption('TwitterBootstrap3.labelWidths.small', 0) }}
                         {!! Former::text('emailSubject')
                                 ->placeholder('subject')
-                                ->label(false)
                                 ->onchange('onEmailSubjectChange()')
                                 ->oninput('onEmailSubjectInput()')
-                                ->appendIcon('question-sign')
-                                ->addGroupClass('email-subject') !!}
-                        {{ Former::setOption('TwitterBootstrap3.labelWidths.large', 4) }}
-                        {{ Former::setOption('TwitterBootstrap3.labelWidths.small', 4) }}
-
+                                ->raw() !!}
                         <br/>
-                        <div id="templateEditor" class="form-control" style="min-height:160px"></div>
+                        <div id="templateEditor" class="form-control" style="min-height:560px"></div>
                         <div style="display:none">
-                            {!! Former::textarea("template[body]")->raw() !!}
-                            {!! Former::text('template[subject]')->raw() !!}
-                            {!! Former::text('reminder')->raw() !!}
+                            {!! Former::textarea("template[body]")
+                                    ->raw() !!}
+                            {!! Former::text('template[subject]')
+                                    ->raw() !!}
+                            {!! Former::text('reminder')
+                                    ->raw() !!}
                         </div>
-                        @include('partials/quill_toolbar', ['name' => 'template'])
+                        
                     </div>
                     <div role="tabpanel" class="tab-pane" id="history">
                         @if (count($activities = $invoice->emailHistory()))
@@ -120,13 +111,14 @@
             </div>
 
             <div class="modal-footer" style="margin-top: 2px; padding-right:0px">
-                <div id="defaultDiv" style="display:none" class="pull-left">
+                {{-- <div id="defaultDiv" style="display:none" class="pull-left">
                     {!! Former::checkbox('save_as_default')
                             ->text('save_as_default')
                             ->raw() !!}
-                </div>
+                </div> --}}
                 <button type="button" class="btn btn-default" data-dismiss="modal">{{ trans('texts.cancel') }}</button>
-                <button id="sendEmailButton" type="button" class="btn btn-info" onclick="onConfirmEmailClick()">{{ trans('texts.send_email') }}</button>
+                <button id="sendEmailButton" type="button" class="btn btn-info" onclick="onConfirmEmailClick()">{{ trans('texts.send_email_now') }}</button>
+                <button id="sendLaterEmailButton" type="button" class="btn btn-info" onclick="onConfirmSendLaterClick()">{{ trans('texts.send_email_later') }}</button>
             </div>
             </div>
         </div>
@@ -142,10 +134,10 @@
     emailSubjects['reminder3'] = "{{ $account->getEmailSubject('reminder3') }}";
 
     var emailTemplates = [];
-    emailTemplates['{{ $invoice->getEntityType() }}'] = "{{ $account->getEmailTemplate($invoice->getEntityType()) }}";
+    {{--  emailTemplates['{{ $invoice->getEntityType() }}'] = "{{ $account->getEmailTemplate($invoice->getEntityType()) }}";
     emailTemplates['reminder1'] = "{{ $account->getEmailTemplate('reminder1') }}";
     emailTemplates['reminder2'] = "{{ $account->getEmailTemplate('reminder2') }}";
-    emailTemplates['reminder3'] = "{{ $account->getEmailTemplate('reminder3') }}";
+    emailTemplates['reminder3'] = "{{ $account->getEmailTemplate('reminder3') }}";  --}}
 
     function showEmailModal() {
         loadTemplate();
@@ -158,7 +150,17 @@
     });
 
     function loadTemplate() {
-        @if (Utils::isPro())
+        var template_type = $('#template_type').val();
+         $('#reminder').val(template_type);
+        $.getJSON("/api/templates/"+template_type+"/json",function(res){
+                emailEditor.setContent(res['content'], {format: 'raw'})
+                //emailEditor.setHTML(res['content']);
+                $("#template\\[subject\\]").val(res['subject']);
+                $("#template\\[body\\]").val(res['content']);
+                $("#emailSubject").val(res['subject']);
+                refreshPreview();
+        });
+       {{--  @if (Utils::isPro())
             var templateType = $('#template_type').val();
         @else
             var templateType = '{{ $invoice->getEntityType() }}';
@@ -177,16 +179,17 @@
         $('#reminder').val(reminder);
 
         $('#defaultDiv').hide();
-        refreshPreview();
+        refreshPreview(); --}}
     }
 
     function refreshPreview() {
         var invoice = createInvoiceModel();
         invoice = calculateAmounts(invoice);
         var template = $("#emailSubject").val();
+
         $('#emailSubjectDiv').html('<b>' + renderEmailTemplate(template, invoice) + '</b>');
-        var template = emailEditor.getHTML();
-        $('#emailBodyDiv').html(renderEmailTemplate(template, invoice));
+        var template = emailEditor.getContent();
+        $('#emailBodyDiv iframe').contents().find('body').html(renderEmailTemplate(template, invoice));
     }
 
     function dencodeEntities(s) {
@@ -206,6 +209,40 @@
     var emailEditor;
 
     $(function() {
+           $(".datetimepicker").datetimepicker({datetimepicker:"yyyy-mm-dd hh:ii:ss"});
+           tinymce.init({
+                selector: '#templateEditor',
+                branding: false,
+                visual : false,
+                menubar: false,
+                statusbar: false,
+                object_resizing : false,
+                plugins: [
+                    'advlist autolink lists link charmap print preview anchor',
+                    'searchreplace visualblocks code fullscreen',
+                    'insertdatetime textcolor contextmenu paste code'
+                ],
+                init_instance_callback: function (editor) {
+                    emailEditor = editor;
+                    editor.on('Change', function (e) {
+                        $("#content").val(editor.getContent());
+
+                        $("#template\\[body\\]").val(editor.getContent());
+                        $('#defaultDiv').show();
+                        refreshPreview();
+                        NINJA.formIsChanged = true;
+                    });
+                },
+                toolbar: 'undo redo | forecolor backcolor |  bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link',
+                content_css: [
+                   // '//fonts.googleapis.com/css?family=Open+Sans:300,400,400italic,700&subset=latin,cyrillic'
+                    ]
+                });
+
+            
+        });
+
+    {{-- $(function() {
       emailEditor = new Quill('#templateEditor', {
           modules: {
             'toolbar': { container: '#templateToolbar' },
@@ -225,16 +262,12 @@
           NINJA.formIsChanged = true;
         });
 
-      @if (Utils::isPro() && $invoice->isStandard())
+      @if (Utils::isPro())
           if (window.defaultTemplate) {
               $('#template_type').val(window.defaultTemplate);
           }
       @endif
-
-      $('.email-subject .input-group-addon').click(function() {
-          $('#templateHelpModal').modal('show');
-      });
-    });
+    }); --}}
 
 </script>
 
@@ -242,7 +275,7 @@
     #emailModal #preview.tab-pane,
     #emailModal #history.tab-pane {
         margin-top: 20px;
-        max-height: 320px;
+        
         overflow-y:auto;
     }
 
@@ -251,12 +284,24 @@
     }
 
     #templateEditor {
-        max-height: 300px;
+        max-height: 600px;
     }
 
     @media only screen and (min-width : 767px) {
         .modal-dialog {
-            width: 690px;
+            width: 75%;
+            max-width:950px;
+            min-width: 690px;
+             
         }
+    }
+    #templateEditor_ifr {
+        height: 500px !important;
+    }
+    
+    #emailBodyDiv iframe {
+        width:100%;
+        height: 500px;
+        border:0;
     }
 </style>

@@ -21,7 +21,6 @@ use App\Models\PaymentTerm;
 use App\Models\Product;
 use App\Models\TaxRate;
 use App\Models\User;
-use App\Models\AccountEmailSettings;
 use App\Ninja\Mailers\ContactMailer;
 use App\Ninja\Mailers\UserMailer;
 use App\Ninja\Repositories\AccountRepository;
@@ -29,6 +28,7 @@ use App\Ninja\Repositories\ReferralRepository;
 use App\Services\AuthService;
 use App\Services\PaymentService;
 use App\Services\TemplateService;
+use Modules\Templates\Models\Templates;
 use Auth;
 use Cache;
 use File;
@@ -102,6 +102,7 @@ class AccountController extends BaseController
     /**
      * @return \Illuminate\Http\RedirectResponse
      */
+    
     public function getStarted()
     {
         $user = false;
@@ -132,6 +133,7 @@ class AccountController extends BaseController
         event(new UserSignedUp());
 
         $redirectTo = Input::get('redirect_to') ? SITE_URL . '/' . ltrim(Input::get('redirect_to'), '/') : 'invoices/create';
+
         return Redirect::to($redirectTo)->with('sign_up', Input::get('sign_up'));
     }
 
@@ -403,7 +405,7 @@ class AccountController extends BaseController
             'user' => Auth::user(),
             'oauthProviderName' => AuthService::getProviderName(Auth::user()->oauth_provider_id),
             'oauthLoginUrls' => $oauthLoginUrls,
-            'referralCounts' => $this->referralRepository->getCounts(Auth::user()->referral_code),
+            'referralCounts' => $this->referralRepository->getCounts(Auth::user()->referral_code)
         ];
 
         return View::make('accounts.user_details', $data);
@@ -419,6 +421,7 @@ class AccountController extends BaseController
             'timezones' => Cache::get('timezones'),
             'dateFormats' => Cache::get('dateFormats'),
             'datetimeFormats' => Cache::get('datetimeFormats'),
+            'currencies' => Cache::get('currencies'),
             'title' => trans('texts.localization'),
             'weekdays' => Utils::getTranslatedWeekdayNames(),
             'months' => Utils::getMonthOptions(),
@@ -580,12 +583,12 @@ class AccountController extends BaseController
         }
 
         if ($section == ACCOUNT_CUSTOMIZE_DESIGN) {
+           // $data['customDesign'] = ($account->custom_design && ! $design) ? $account->custom_design : $design;
             if ($custom = $account->getCustomDesign(request()->design_id)) {
                 $data['customDesign'] = $custom;
             } else {
                 $data['customDesign'] = $design;
             }
-
             // sample invoice to help determine variables
             $invoice = Invoice::scope()
                             ->invoiceType(INVOICE_TYPE_STANDARD)
@@ -660,16 +663,11 @@ class AccountController extends BaseController
         $data['account'] = $account;
         $data['templates'] = [];
         $data['defaultTemplates'] = [];
-        foreach (AccountEmailSettings::$templates as $type) {
-            $data['templates'][$type] = [
-                'subject' => $account->getEmailSubject($type),
-                'template' => $account->getEmailTemplate($type),
-            ];
-            $data['defaultTemplates'][$type] = [
-                'subject' => $account->getDefaultEmailSubject($type),
-                'template' => $account->getDefaultEmailTemplate($type),
-            ];
+        foreach ([ENTITY_INVOICE, ENTITY_QUOTE, ENTITY_PAYMENT, REMINDER1, REMINDER2, REMINDER3,"admin_invoice","admin_quote","admin_payment","pre_auth","admin_pre_auth","pre_completion","admin_pre_completion","client_invoice","client_quote","client_report"] as $type) {
+            $data['templates_'.$type] = $account->getEmailTemplate($type);
+            
         }
+        $data['templates'] = Templates::scope()->get(["id","name"]);
         $data['title'] = trans('texts.email_templates');
 
         return View::make('accounts.templates_and_reminders', $data);
@@ -821,7 +819,7 @@ class AccountController extends BaseController
         if (Auth::user()->account->hasFeature(FEATURE_EMAIL_TEMPLATES_REMINDERS)) {
             $account = Auth::user()->account;
 
-            foreach (AccountEmailSettings::$templates as $type) {
+            foreach ([ENTITY_INVOICE, ENTITY_QUOTE, ENTITY_PAYMENT, REMINDER1, REMINDER2, REMINDER3] as $type) {
                 $subjectField = "email_subject_{$type}";
                 $subject = Input::get($subjectField, $account->getEmailSubject($type));
                 $account->account_email_settings->$subjectField = ($subject == $account->getDefaultEmailSubject($type) ? null : $subject);
@@ -830,18 +828,22 @@ class AccountController extends BaseController
                 $body = Input::get($bodyField, $account->getEmailTemplate($type));
                 $account->account_email_settings->$bodyField = ($body == $account->getDefaultEmailTemplate($type) ? null : $body);
             }
-
-            foreach ([TEMPLATE_REMINDER1, TEMPLATE_REMINDER2, TEMPLATE_REMINDER3] as $type) {
+            foreach (["admin_invoice","admin_quote","admin_payment","pre_auth","admin_pre_auth","pre_completion","admin_pre_completion","client_invoice","client_quote","client_report"] as $type ) {
+                $bodyField = "email_template_{$type}";
+                $body = Input::get($bodyField, $account->getEmailTemplate($type));
+                $account->account_email_settings->$bodyField = ($body == $account->getDefaultEmailTemplate($type) ? null : $body);
+            }
+            foreach ([REMINDER1, REMINDER2, REMINDER3] as $type) {
                 $enableField = "enable_{$type}";
                 $account->$enableField = Input::get($enableField) ? true : false;
                 $account->{"num_days_{$type}"} = Input::get("num_days_{$type}");
                 $account->{"field_{$type}"} = Input::get("field_{$type}");
                 $account->{"direction_{$type}"} = Input::get("field_{$type}") == REMINDER_FIELD_INVOICE_DATE ? REMINDER_DIRECTION_AFTER : Input::get("direction_{$type}");
-
-                $number = preg_replace('/[^0-9]/', '', $type);
-                $account->account_email_settings->{"late_fee{$number}_amount"} = Input::get("late_fee{$number}_amount");
-                $account->account_email_settings->{"late_fee{$number}_percent"} = Input::get("late_fee{$number}_percent");
             }
+
+            $number = preg_replace('/[^0-9]/', '', $type);
+            $account->account_email_settings->{"late_fee{$number}_amount"} = Input::get("late_fee{$number}_amount");
+            $account->account_email_settings->{"late_fee{$number}_percent"} = Input::get("late_fee{$number}_percent");
 
             $account->save();
             $account->account_email_settings->save();
@@ -898,6 +900,7 @@ class AccountController extends BaseController
                 $rules['credit_number_prefix'] = 'required_without:credit_number_pattern';
                 $rules['credit_number_pattern'] = 'required_without:credit_number_prefix';
             }
+
             $validator = Validator::make(Input::all(), $rules);
 
             if ($validator->fails()) {
@@ -1046,9 +1049,10 @@ class AccountController extends BaseController
         /* Logo image file */
         if ($uploaded = Input::file('logo')) {
             $path = Input::file('logo')->getRealPath();
-            $disk = $account->getLogoDisk();
-            $extension = strtolower($uploaded->getClientOriginalExtension());
 
+            $disk = $account->getLogoDisk();
+            
+            $extension = strtolower($uploaded->getClientOriginalExtension());
             if (empty(Document::$types[$extension]) && ! empty(Document::$extraExtensions[$extension])) {
                 $documentType = Document::$extraExtensions[$extension];
             } else {
@@ -1081,6 +1085,7 @@ class AccountController extends BaseController
                                 $image->interlace(false);
                                 $imageStr = (string) $image->encode($documentType);
                                 $disk->put($account->logo, $imageStr);
+
                                 $account->logo_size = strlen($imageStr);
                             } else {
                                 if (Utils::isInterlaced($filePath)) {
@@ -1098,6 +1103,8 @@ class AccountController extends BaseController
                         }
                     } else {
                         if (extension_loaded('fileinfo')) {
+                            
+
                             $account->logo = $account->account_key.'.png';
                             $image = Image::make($path);
                             $image = Image::canvas($image->width(), $image->height(), '#FFFFFF')->insert($image);
@@ -1138,9 +1145,8 @@ class AccountController extends BaseController
                 ->withError(trans('texts.email_taken'))
                 ->withInput();
         }
-
         $rules = ['email' => 'email|required|unique:users,email,'.$user->id.',id'];
-
+        
         if ($user->google_2fa_secret) {
             $rules['phone'] = 'required';
         }
@@ -1158,7 +1164,8 @@ class AccountController extends BaseController
             $user->email = $email;
             $user->phone = trim(Input::get('phone'));
             $user->dark_mode = Input::get('dark_mode');
-
+            $user->signature = Input::get('signature');
+            
             if (! Auth::user()->is_admin) {
                 $user->notify_sent = Input::get('notify_sent');
                 $user->notify_viewed = Input::get('notify_viewed');
@@ -1304,11 +1311,10 @@ class AccountController extends BaseController
         $lastName = trim(Input::get('new_last_name'));
         $email = trim(strtolower(Input::get('new_email')));
         $password = trim(Input::get('new_password'));
-
+        
         if (! \App\Models\LookupUser::validateField('email', $email, $user)) {
             return '';
         }
-
         if ($user->registered) {
             $newAccount = $this->accountRepo->create($firstName, $lastName, $email, $password, $account->company);
             $newUser = $newAccount->users()->first();
@@ -1394,8 +1400,8 @@ class AccountController extends BaseController
 
         $user = Auth::user();
         $account = Auth::user()->account;
-
         \Log::info("Canceled Account: {$account->name} - {$user->email}");
+
         $type = $account->hasMultipleAccounts() ? 'company' : 'account';
         $subject = trans("texts.deleted_{$type}");
         $message = trans("texts.deleted_{$type}_details", ['account' => $account->getDisplayName()]);
@@ -1410,13 +1416,16 @@ class AccountController extends BaseController
             $ninjaClient->delete();
         }
 
+
+
         Document::scope()->each(function ($item, $key) {
             $item->delete();
         });
 
         $this->accountRepo->unlinkAccount($account);
-        $account->forceDelete();
 
+        
+        $account->forceDelete();
         Auth::logout();
         Session::flush();
 
@@ -1497,6 +1506,7 @@ class AccountController extends BaseController
 
         // create the email view
         $view = 'emails.' . $account->getTemplateView(ENTITY_INVOICE) . '_html';
+
         $data = array_merge($data, [
             'body' => $templateService->processVariables($template, $data),
             'entityType' => ENTITY_INVOICE,

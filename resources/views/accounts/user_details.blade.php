@@ -1,5 +1,10 @@
 @extends('header')
 
+@section('head')
+	@parent
+    <script src="{{ asset('js/jSignature.min.js') }}"></script>
+@stop
+
 @section('content')
     @parent
 
@@ -17,6 +22,8 @@
     {{ Former::populateField('phone', $user->phone) }}
     {{ Former::populateField('dark_mode', intval($user->dark_mode)) }}
     {{ Former::populateField('enable_two_factor', $user->google_2fa_secret ? 1 : 0) }}
+    
+    
 
     @if (Input::has('affiliate'))
         {{ Former::populateField('referral_code', true) }}
@@ -38,7 +45,13 @@
                 {!! Former::text('last_name') !!}
                 {!! Former::text('email') !!}
                 {!! Former::text('phone') !!}
-
+                <input type="hidden" name="signature" value="{{$user->signature}}" id="user_signature">
+                <div class="form-group">
+                    <label class="control-label col-lg-4 col-sm-4">Signature</label>
+                    <div class="col-lg-8 col-sm-8">
+                        <img src="data:{{$user->signature}}" style="width:100%" id="signature-image">
+                    </div>
+                </div>
                 <br/>
 
                 @if (Utils::isOAuthEnabled())
@@ -49,7 +62,6 @@
                         )->help('oneclick_login_help')
                      !!}
                 @endif
-
                 @if ($user->confirmed)
                   @if ($user->google_2fa_secret)
                       {!! Former::checkbox('enable_two_factor')
@@ -97,7 +109,10 @@
         @include('accounts.partials.notifications')
     @endif
 
-    <center class="buttons">
+    <center>
+        {!! Button::primary('Update Signature')
+                    ->appendIcon(Icon::create('lock'))
+                    ->large()->withAttributes(['onclick'=>'showSignatureModal()']) !!}
         @if (Auth::user()->confirmed)
             {!! Button::primary(trans('texts.change_password'))
                     ->appendIcon(Icon::create('lock'))
@@ -172,11 +187,45 @@
         </div>
     </div>
 
+    <div class="modal fade" id="signatureModal" tabindex="-1" role="dialog" aria-labelledby="signatureModalLabel" aria-hidden="true">
+	  <div class="modal-dialog" style="min-width:150px">
+	    <div class="modal-content">
+	      <div class="modal-header">
+	        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+	        <h4 class="modal-title" id="signatureModalLabel">Signature</h4>
+	      </div>
+
+		  <div class="container" style="width: 100%; padding-bottom: 0px !important">
+          <div class="panel panel-default">
+			 <div class="panel-body">
+				
+                <div>
+						{{ trans('texts.sign_here') }}
+					</div>
+				 	<div id="signature" style="position:relative;z-index:1;"></div>
+                    
+                    <div style="background: #8c8c8c;width: 85%;height: 2px;top: -50px;position: relative;margin:auto"></div> 
+			 </div>
+		  </div>
+		  </div>
+
+	     <div class="modal-footer" style="padding-top: 0px">
+	      	<button type="button" class="btn btn-primary" id="signatureDone">Done</button>
+	     </div>
+
+	    </div>
+	  </div>
+	</div>
 
     {!! Former::close() !!}
 
     <script type="text/javascript">
+        function showSignatureModal(){
 
+            $("div#signature").empty().jSignature({signatureLine:false, 'background-color':'transparent',height:150});
+            $("#signatureModal").modal();
+            return false;
+        }
         $(function() {
             $('#passwordModal').on('hidden.bs.modal', function () {
                 $(['current_password', 'newer_password', 'confirm_password']).each(function(i, field) {
@@ -270,4 +319,13 @@
 
 @section('onReady')
     $('#first_name').focus();
+    
+    
+    $("#signatureDone").off().on("click",function(){
+          var signature = $("div#signature").jSignature('getData', 'image').join(",");
+          $("input#user_signature").val(signature);
+          $("#signature-image").attr("src","data:"+signature);
+          $("#signatureModal").modal("hide");
+         
+    })
 @stop

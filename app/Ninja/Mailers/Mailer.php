@@ -29,24 +29,32 @@ class Mailer
             return true;
         }
 
-        /*
         if (isset($_ENV['POSTMARK_API_TOKEN'])) {
             $views = 'emails.'.$view.'_html';
         } else {
-            $views = [
-                'emails.'.$view.'_html',
-                'emails.'.$view.'_text',
-            ];
+            if(strpos($view,"templates::") !== false){
+                $views = [
+                    $view.'_html',
+                    $view.'_text'
+                    //'emails.'.$view.'_html',
+                // 'emails.'.$view.'_text',
+                ];
+            }
+            else {
+                $views = [
+                   // $view.'_html',
+                   // $view.'_text'
+                    'emails.'.$view.'_html',
+                    'emails.'.$view.'_text',
+                ];
+            }
+            
         }
-        */
-
-        $views = [
-            'emails.'.$view.'_html',
-            'emails.'.$view.'_text',
-        ];
 
         try {
+            
             $response = Mail::send($views, $data, function ($message) use ($toEmail, $fromEmail, $fromName, $subject, $data) {
+                
                 $toEmail = strtolower($toEmail);
                 $replyEmail = $fromEmail;
                 $fromEmail = CONTACT_EMAIL;
@@ -56,7 +64,7 @@ class Mailer
                 if (! empty($data['fromEmail'])) {
                     $fromEmail = $data['fromEmail'];
                 }
-
+                
                 $message->to($toEmail)
                         ->from($fromEmail, $fromName)
                         ->replyTo($replyEmail, $fromName)
@@ -66,6 +74,14 @@ class Mailer
                 if (! empty($data['bccEmail'])) {
                     $message->bcc($data['bccEmail']);
                 }
+                
+                if(isset($data['ccEmail']) && !empty($data['ccEmail'])){
+                    foreach ($data['ccEmail'] as $key => $value) {
+                        
+                        $message->cc($value);
+                    }
+                }
+                
 
                 // Attach the PDF to the email
                 if (! empty($data['pdfString']) && ! empty($data['pdfFileName'])) {
@@ -94,6 +110,7 @@ class Mailer
      */
     private function handleSuccess($response, $data)
     {
+        
         if (isset($data['invitation'])) {
             $invitation = $data['invitation'];
             $invoice = $invitation->invoice;
@@ -119,6 +136,7 @@ class Mailer
      */
     private function handleFailure($exception)
     {
+        
         if (isset($_ENV['POSTMARK_API_TOKEN']) && method_exists($exception, 'getResponse')) {
             $response = $exception->getResponse();
 
@@ -147,7 +165,8 @@ class Mailer
         } elseif (! Utils::isNinjaProd()) {
             Utils::logError(Utils::getErrorString($exception));
         }
-
-        return $emailError;
+       // throw $exception;
+       
+       return $emailError;
     }
 }

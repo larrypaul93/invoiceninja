@@ -7,6 +7,7 @@ use App\Models\Invitation;
 use Auth;
 use Closure;
 use Session;
+use Artisan;
 
 /**
  * Class Authenticate.
@@ -25,6 +26,12 @@ class Authenticate
     public function handle($request, Closure $next, $guard = 'user')
     {
         $authenticated = Auth::guard($guard)->check();
+
+        if (env('APP_DEBUG') || env('APP_ENV') === 'local'){
+            
+            Artisan::call('view:clear');
+        } 
+            
 
         if ($guard == 'client') {
             if (! empty($request->invitation_key)) {
@@ -64,9 +71,8 @@ class Authenticate
                 Session::put('contact_key', $contact->contact_key);
             }
             if (! $contact) {
-                return \Redirect::to('client/session_expired');
+                return \Redirect::to('client/sessionexpired');
             }
-
             $account = $contact->account;
 
             if (Auth::guard('user')->check() && Auth::user('user')->account_id == $account->id) {
@@ -89,6 +95,13 @@ class Authenticate
 
             if ($authenticated) {
                 $request->merge(['contact' => $contact]);
+            }
+        }
+
+        if($guard == 'user'){
+            $user = Auth::user('user');
+            if($user && !$user->registered){
+                    return response('Unauthorized.', 401);
             }
         }
 

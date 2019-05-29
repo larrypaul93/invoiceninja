@@ -47,15 +47,19 @@ class NotificationListener
      * @param $type
      * @param null $payment
      */
-    private function sendEmails($invoice, $type, $payment = null, $notes = false)
+     private function sendEmails($invoice, $type, $payment = null, $notes = false)
     {
-        foreach ($invoice->account->users as $user)
+
+        $this->userMailer->sendAccountNotification($invoice,$type,$payment);
+        dispatch(new SendNotificationEmail($invoice->user, $invoice, $type, $payment, $notes));
+       // $this->userMailer->sendNotification($invoice->user, $invoice, $type, $payment);
+        /*foreach ($invoice->account->users as $user)
         {
             if ($user->{"notify_{$type}"})
             {
-                dispatch(new SendNotificationEmail($user, $invoice, $type, $payment, $notes));
+                $this->userMailer->sendNotification($user, $invoice, $type, $payment);
             }
-        }
+        }*/
     }
 
     /**
@@ -63,7 +67,7 @@ class NotificationListener
      */
     public function emailedInvoice(InvoiceWasEmailed $event)
     {
-        $this->sendEmails($event->invoice, 'sent', null, $event->notes);
+        $this->sendEmails($event->invoice, 'sent',null,$event->notes);
         $this->pushService->sendNotification($event->invoice, 'sent');
     }
 
@@ -72,7 +76,7 @@ class NotificationListener
      */
     public function emailedQuote(QuoteWasEmailed $event)
     {
-        $this->sendEmails($event->quote, 'sent', null, $event->notes);
+        $this->sendEmails($event->quote, 'sent',null,$event->notes);
         $this->pushService->sendNotification($event->quote, 'sent');
     }
 

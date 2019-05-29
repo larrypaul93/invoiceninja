@@ -6,13 +6,70 @@
     {!! Former::text('public_id')->id('public_id_' . $entityType) !!}
     {!! Former::text('datatable')->value('true') !!}
 </div>
+<div id="top_right_buttons" class="pull-left">
+	<input id="tableFilter_{{ $entityType }}" type="text" style="width:180px;margin-right:17px;background-color: white !important"
+        class="form-control pull-left" placeholder="{{ trans('texts.filter') }}" value="{{ Input::get('filter') }}"/>
 
-<div class="pull-left">
-	@if (in_array($entityType, [ENTITY_TASK, ENTITY_EXPENSE, ENTITY_PRODUCT, ENTITY_PROJECT]))
-		@can('create', 'invoice')
-			{!! Button::primary(trans('texts.invoice'))->withAttributes(['class'=>'invoice', 'onclick' =>'submitForm_'.$entityType.'("invoice")'])->appendIcon(Icon::create('check')) !!}
-		@endcan
+    @if ($entityType == ENTITY_EXPENSE)
+		{!! DropdownButton::normal(trans('texts.recurring'))
+			->withAttributes(['class'=>'recurringDropdown'])
+			->withContents([
+			  ['label' => trans('texts.new_recurring_expense'), 'url' => url('/recurring_expenses/create')],
+			]
+		  )->split() !!}
+	    {!! DropdownButton::normal(trans('texts.categories'))
+			->withAttributes(['class'=>'categoriesDropdown'])
+			->withContents([
+			  ['label' => trans('texts.new_expense_category'), 'url' => url('/expense_categories/create')],
+			]
+		  )->split() !!}
+	  	<script type="text/javascript">
+		  	$(function() {
+				$('.recurringDropdown:not(.dropdown-toggle)').click(function() {
+		  			window.location = '{{ url('/recurring_expenses') }}';
+		  		});
+				$('.categoriesDropdown:not(.dropdown-toggle)').click(function() {
+		  			window.location = '{{ url('/expense_categories') }}';
+		  		});
+			});
+		</script>
+
+	@elseif ($entityType == ENTITY_TASK)
+		{!! DropdownButton::normal(trans('texts.projects'))
+			->withAttributes(['class'=>'projectsDropdown'])
+			->withContents([
+			  ['label' => trans('texts.new_project'), 'url' => url('/projects/create')],
+			]
+		  )->split() !!}
+	  	<script type="text/javascript">
+		  	$(function() {
+		  		$('.projectsDropdown:not(.dropdown-toggle)').click(function() {
+		  			window.location = '{{ url('projects') }}';
+		  		});
+			});
+		</script>
+    @endif
+
+	@if (Auth::user()->can('create', $entityType) && empty($vendorId) && $entityType == ENTITY_CLIENT)
+		{!! Button::primary(mtrans($entityType, "new_{$entityType}"))->asLinkTo(url(Utils::pluralizeEntityType($entityType).'/create'))->appendIcon(Icon::create('plus-sign')) !!}
+	@elseif (Auth::user()->can('create', $entityType) && empty($vendorId) && $entityType == ENTITY_CONTACT && isset($client))
+		{!! Button::primary(mtrans($entityType, "new_{$entityType}"))->asLinkTo(url(Utils::pluralizeEntityType(ENTITY_CONTACT)).'/create/'.$client->id)->appendIcon(Icon::create('plus-sign')) !!}
+	@elseif (Auth::user()->can('create', $entityType) && empty($vendorId) && $entityType == ENTITY_CONTACT)
+		{!! Button::primary(mtrans($entityType, "new_{$entityType}"))->asLinkTo(url(Utils::pluralizeEntityType(ENTITY_CONTACT)).'/create')->appendIcon(Icon::create('plus-sign')) !!}
+	@elseif (Auth::user()->can('create', $entityType) && empty($vendorId))
+    	{!! Button::primary(mtrans($entityType, "new_{$entityType}"))->asLinkTo(url(Utils::pluralizeEntityType($entityType) . '/create/' . (isset($clientId) ? $clientId : '')))->appendIcon(Icon::create('plus-sign')) !!}
 	@endif
+
+</div>
+<div class="pull-right">
+	@can('create', 'invoice')
+		@if ($entityType == ENTITY_TASK)
+			{!! Button::primary(trans('texts.invoice'))->withAttributes(['class'=>'invoice', 'onclick' =>'submitForm_'.$entityType.'("invoice")'])->appendIcon(Icon::create('check')) !!}
+		@endif
+		@if ($entityType == ENTITY_EXPENSE)
+			{!! Button::primary(trans('texts.invoice'))->withAttributes(['class'=>'invoice', 'onclick' =>'submitForm_'.$entityType.'("invoice")'])->appendIcon(Icon::create('check')) !!}
+		@endif
+	@endcan
 
 	{!! DropdownButton::normal(trans('texts.archive'))
 			->withContents($datatable->bulkActions())
@@ -42,56 +99,7 @@
 	</span>
 </div>
 
-<div id="top_right_buttons" class="pull-right">
-	<input id="tableFilter_{{ $entityType }}" type="text" style="width:180px;margin-right:17px;background-color: white !important"
-        class="form-control pull-left" placeholder="{{ trans('texts.filter') }}" value="{{ Input::get('filter') }}"/>
 
-	@if (false && $entityType == ENTITY_INVOICE && auth()->user()->account->isModuleEnabled(ENTITY_RECURRING_INVOICE))
-		{!! DropdownButton::normal(trans('texts.recurring'))
-			->withAttributes(['class'=>'recurringDropdown'])
-			->withContents([
-			  ['label' => trans('texts.new_recurring_invoice'), 'url' => url('/recurring_invoices/create')],
-			]
-		  )->split() !!}
-		<script type="text/javascript">
-			$(function() {
-				$('.recurringDropdown:not(.dropdown-toggle)').click(function(event) {
-					openUrlOnClick('{{ url('/recurring_invoices') }}', event);
-				});
-			});
-		</script>
-    @elseif ($entityType == ENTITY_EXPENSE)
-		{!! DropdownButton::normal(trans('texts.recurring'))
-			->withAttributes(['class'=>'recurringDropdown'])
-			->withContents([
-			  ['label' => trans('texts.new_recurring_expense'), 'url' => url('/recurring_expenses/create')],
-			]
-		  )->split() !!}
-	    {!! DropdownButton::normal(trans('texts.categories'))
-			->withAttributes(['class'=>'categoriesDropdown'])
-			->withContents([
-			  ['label' => trans('texts.new_expense_category'), 'url' => url('/expense_categories/create')],
-			]
-		  )->split() !!}
-	  	<script type="text/javascript">
-		  	$(function() {
-				$('.recurringDropdown:not(.dropdown-toggle)').click(function(event) {
-					openUrlOnClick('{{ url('/recurring_expenses') }}', event)
-		  		});
-				$('.categoriesDropdown:not(.dropdown-toggle)').click(function(event) {
-					openUrlOnClick('{{ url('/expense_categories') }}', event);
-		  		});
-			});
-		</script>
-	@elseif ($entityType == ENTITY_TASK)
-		{!! Button::normal(trans('texts.time_tracker'))->asLinkTo('javascript:openTimeTracker()')->appendIcon(Icon::create('time')) !!}
-    @endif
-
-	@if (Auth::user()->can('create', $entityType) && empty($vendorId))
-    	{!! Button::primary(mtrans($entityType, "new_{$entityType}"))->asLinkTo(url(Utils::pluralizeEntityType($entityType) . '/create/' . (isset($clientId) ? $clientId : '')))->appendIcon(Icon::create('plus-sign')) !!}
-	@endif
-
-</div>
 
 
 {!! Datatable::table()
@@ -128,15 +136,7 @@
 
 <script type="text/javascript">
 
-	var submittedForm;
 	function submitForm_{{ $entityType }}(action, id) {
-		// prevent duplicate form submissions
-		if (submittedForm) {
-			swal("{{ trans('texts.processing_request') }}")
-			return;
-		}
-		submittedForm = true;
-
 		if (id) {
 			$('#public_id_{{ $entityType }}').val(id);
 		}
@@ -202,7 +202,6 @@
 	        });
 
 	        actionListHandler();
-			$('[data-toggle="tooltip"]').tooltip();
 	    }
 
 	    $('.listForm_{{ $entityType }} .archive, .invoice').prop('disabled', true);

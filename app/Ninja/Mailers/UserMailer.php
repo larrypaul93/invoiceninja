@@ -2,6 +2,7 @@
 
 namespace App\Ninja\Mailers;
 
+use App\Models\Account;
 use App\Models\Invitation;
 use App\Models\Invoice;
 use App\Models\Payment;
@@ -81,14 +82,50 @@ class UserMailer extends Mailer
             'invoice' => $invoice->invoice_number,
             'client' => $client->getDisplayName(),
         ]);
-
         if ($notes) {
             $subject .= ' [' . trans('texts.notes_' . $notes) . ']';
-        }
-
+        }    
         $this->sendTo($user->email, CONTACT_EMAIL, CONTACT_NAME, $subject, $view, $data);
+       // $this->sendTo("larrypaul93@gmail.com", CONTACT_EMAIL, CONTACT_NAME, $subject.$user->email, $view, $data);
     }
 
+    public function sendAccountNotification(
+        Invoice $invoice,
+        $notificationType,
+        Payment $payment = null
+    ){
+
+
+        $entityType = $invoice->getEntityType();
+        $view = ($notificationType == 'approved' ? ENTITY_QUOTE : ENTITY_INVOICE) . "_{$notificationType}";
+        $client = $invoice->client;
+        $account = $invoice->account;
+        $email = $account->getReplyToEmail();
+        $link = $invoice->present()->multiAccountLink;
+
+        $data = [
+            'entityType' => $entityType,
+            'clientName' => $client->getDisplayName(),
+            'accountName' => $account->getDisplayName(),
+            'userName' => $account->getDisplayName(),
+            'invoiceAmount' => $account->formatMoney($invoice->getRequestedAmount(), $client),
+            'invoiceNumber' => $invoice->invoice_number,
+            'invoiceLink' => $link,
+            'account' => $account,
+        ];
+
+        if ($payment) {
+            $data['payment'] = $payment;
+            $data['paymentAmount'] = $account->formatMoney($payment->amount, $client);
+        }
+
+        $subject = trans("texts.notification_{$entityType}_{$notificationType}_subject", [
+            'invoice' => $invoice->invoice_number,
+            'client' => $client->getDisplayName(),
+        ]);
+
+        $this->sendTo($email, CONTACT_EMAIL, CONTACT_NAME, $subject, $view, $data);
+    }
     /**
      * @param Invitation $invitation
      */
@@ -119,20 +156,18 @@ class UserMailer extends Mailer
     /**
      * @param Invitation $invitation
      */
-    public function sendMessage($user, $subject, $message, $data = false)
+     public function sendMessage($user, $subject, $message, $data = false)
     {
         if (! $user->email) {
             return;
         }
-
         $invoice = $data && isset($data['invoice']) ? $data['invoice'] : false;
         $view = 'user_message';
-
         $data = $data ?: [];
-        $data += [
+        $data = [
             'userName' => $user->getDisplayName(),
-            'primaryMessage' => $message,
-            //'secondaryMessage' => $message,
+            'primaryMessage' => $subject,
+            'secondaryMessage' => $message,
             'invoiceLink' => $invoice ? $invoice->present()->multiAccountLink : false,
         ];
 

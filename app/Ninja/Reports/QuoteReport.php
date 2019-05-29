@@ -26,13 +26,14 @@ class QuoteReport extends AbstractReport
                         ->orderBy('name')
                         ->withArchived()
                         ->with('contacts')
-                        ->with(['invoices' => function ($query) use ($status) {
+                        ->with(['invoices' => function ($query) use ($status,$account) {
                             if ($status == 'draft') {
                                 $query->whereIsPublic(false);
                             }
                             $query->quotes()
                                   ->withArchived()
                                   ->where('invoice_date', '>=', $this->startDate)
+                                  ->where('account_id', '=', $account->id)
                                   ->where('invoice_date', '<=', $this->endDate)
                                   ->with(['invoice_items']);
                         }]);

@@ -1,10 +1,9 @@
 @extends('master')
 
-@section('head_css')
-    <link href="{{ asset('css/built.css') }}?no_cache={{ NINJA_VERSION }}" rel="stylesheet" type="text/css"/>
-@stop
 
 @section('head')
+
+  <link href="{{ asset('css/built.css') }}?no_cache={{ NINJA_VERSION }}" rel="stylesheet" type="text/css"/>
 
 <script type="text/javascript">
 
@@ -37,13 +36,14 @@
     });
   }
 
+
   function openTimeTracker() {
-      var width = 1060;
-      var height = 700;
-      var left = (screen.width/2)-(width/4);
-      var top = (screen.height/2)-(height/1.5);
-      window.open("{{ url('/time_tracker') }}", "time-tracker", "width="+width+",height="+height+",scrollbars=no,toolbar=no,screenx="+left+",screeny="+top+",location=no,titlebar=no,directories=no,status=no,menubar=no");
-  }
+    var width = 1060;
+    var height = 700;
+    var left = (screen.width/2)-(width/4);
+    var top = (screen.height/2)-(height/1.5);
+    window.open("{{ url('/time_tracker') }}", "time-tracker", "width="+width+",height="+height+",scrollbars=no,toolbar=no,screenx="+left+",screeny="+top+",location=no,titlebar=no,directories=no,status=no,menubar=no");
+}
 
   window.loadedSearchData = false;
   function onSearchBlur() {
@@ -64,7 +64,7 @@
           @if (Auth::check() && Auth::user()->account->custom_client_label1)
           ,{
             name: 'data',
-            limit: 3,
+            limit: 5,
             display: 'value',
             source: searchData(data['{{ Auth::user()->account->custom_client_label1 }}'], 'tokens'),
             templates: {
@@ -75,7 +75,7 @@
           @if (Auth::check() && Auth::user()->account->custom_client_label2)
           ,{
             name: 'data',
-            limit: 3,
+            limit: 5,
             display: 'value',
             source: searchData(data['{{ Auth::user()->account->custom_client_label2 }}'], 'tokens'),
             templates: {
@@ -86,7 +86,7 @@
           @foreach (['clients', 'contacts', 'invoices', 'quotes', 'navigation'] as $type)
           ,{
             name: 'data',
-            limit: 3,
+            limit: 5,
             display: 'value',
             source: searchData(data['{{ $type }}'], 'tokens', true),
             templates: {
@@ -198,6 +198,8 @@
         }
     });
 
+    $('[data-toggle="tooltip"]').tooltip();
+
     // set timeout onDomReady
     setTimeout(delayedFragmentTargetOffset, 500);
 
@@ -213,16 +215,20 @@
   });
 
 </script>
-
+<style>
+    .panel-heading {
+        background-color: {{ Auth::user()->account->header_color }} !important;
+    }
+</style>
 @stop
 
 @section('body')
 
-@if (Utils::isNinjaProd() && ! Request::is('settings/account_management'))
+@if ( ! Request::is('settings/account_management'))
   @include('partials.upgrade_modal')
 @endif
 
-<nav class="navbar navbar-default navbar-fixed-top" role="navigation" style="height:60px;">
+<nav class="navbar navbar-default navbar-fixed-top" role="navigation" style="height:60px;background-color:{{ Auth::user()->account->header_color }} !important">
 
     <div class="navbar-header">
       <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navbar-collapse-1">
@@ -235,7 +241,8 @@
           <div class="navbar-brand">
                 <i class="fa fa-bars hide-phone" style="width:32px;padding-top:2px;float:left"></i>
                 {{-- Per our license, please do not remove or modify this link. --}}
-                <img src="{{ asset('images/invoiceninja-logo.png') }}" width="193" height="25" style="float:left"/>
+                {{--<img src="{{ asset('images/logo.png') }}" width="193" height="25" style="float:left"/>--}}
+              <strong>{{ Auth::user()->account->title }}</strong>
           </div>
       </a>
     </div>
@@ -244,7 +251,7 @@
       <div class="fa fa-bars"></div>
     </a>
 
-    <div class="collapse navbar-collapse" id="navbar-collapse-1">
+    <div class="collapse navbar-collapse" id="navbar-collapse-1" style="background-color:{{ Auth::user()->account->header_color }} !important">
       <div class="navbar-form navbar-right">
 
         @if (Auth::check())
@@ -273,9 +280,10 @@
           <ul class="dropdown-menu user-accounts">
             @if (session(SESSION_USER_ACCOUNTS))
                 @foreach (session(SESSION_USER_ACCOUNTS) as $item)
-                    @if ($item->user_id == Auth::user()->id)
+                    @if ($item->account_id == Auth::user()->account_id)
                         @include('user_account', [
                             'user_account_id' => $item->id,
+                            'account_id' => $item->account_id,
                             'user_id' => $item->user_id,
                             'account_name' => $item->account_name,
                             'user_name' => $item->user_name,
@@ -285,10 +293,11 @@
                     @endif
                 @endforeach
                 @foreach (session(SESSION_USER_ACCOUNTS) as $item)
-                    @if ($item->user_id != Auth::user()->id)
+                    @if ($item->account_id != Auth::user()->account_id)
                         @include('user_account', [
                             'user_account_id' => $item->id,
                             'user_id' => $item->user_id,
+                            'account_id' => $item->account_id,
                             'account_name' => $item->account_name,
                             'user_name' => $item->user_name,
                             'logo_url' => isset($item->logo_url) ? $item->logo_url : "",
@@ -305,8 +314,10 @@
                 ])
             @endif
             <li class="divider"></li>
-            @if (Utils::isAdmin() && Auth::user()->confirmed && Utils::getResllerType() != RESELLER_ACCOUNT_COUNT)
-              @if (!session(SESSION_USER_ACCOUNTS) || count(session(SESSION_USER_ACCOUNTS)) < 5)
+            @if (Utils::isAdmin())
+              @if (count(session(SESSION_USER_ACCOUNTS)) > 1)
+                  <li>{!! link_to('/manage_companies', trans('texts.manage_companies')) !!}</li>
+              @elseif (!session(SESSION_USER_ACCOUNTS) || count(session(SESSION_USER_ACCOUNTS)) < 5)
                   <li>{!! link_to('#', trans('texts.add_company'), ['onclick' => 'showSignUp()']) !!}</li>
               @endif
             @endif
@@ -318,7 +329,7 @@
 
       {!! Former::open('/handle_command')->id('search-form')->addClass('navbar-form navbar-right')->role('search') !!}
         <div class="form-group has-feedback">
-          <input type="text" name="command" id="search" style="width: 280px;padding-top:0px;padding-bottom:0px;margin-right:12px;"
+          <input type="text" name="command" id="search" style="width: 240px;padding-top:0px;padding-bottom:0px;margin-right:12px;"
             class="form-control" placeholder="{{ trans('texts.search') . ': ' . trans('texts.search_hotkey')}}"/>
             @if (env('SPEECH_ENABLED'))
                 @include('partials/speech_recognition')
@@ -342,16 +353,17 @@
         @foreach ([
             'dashboard' => false,
             'clients' => false,
+            'contacts' => false,
             'products' => false,
+             'quotes' => false,
             'invoices' => false,
             'payments' => false,
             'recurring_invoices' => 'recurring',
             'credits' => false,
-            'quotes' => false,
             'projects' => false,
             'tasks' => false,
             'expenses' => false,
-            'vendors' => false,
+           // 'vendors' => false,
             'reports' => false,
             'settings' => false,
         ] as $key => $value)
@@ -366,20 +378,21 @@
 
     <!-- Sidebar -->
     <div id="left-sidebar-wrapper" class="hide-phone">
-        <ul class="sidebar-nav {{ Auth::user()->dark_mode ? 'sidebar-nav-dark' : 'sidebar-nav-light' }}">
+        <ul class="sidebar-nav sidebar-nav-dark">
             @foreach([
                 'dashboard',
                 'clients',
+                'contacts',
                 'products',
+                'quotes',
                 'invoices',
                 'payments',
                 'recurring_invoices',
                 'credits',
-                'quotes',
                 'projects',
                 'tasks',
                 'expenses',
-                'vendors',
+              //  'Suppliers',
             ] as $option)
             @if (in_array($option, ['dashboard', 'settings'])
                 || Auth::user()->can('view', substr($option, 0, -1))
@@ -399,17 +412,14 @@
                 @include('partials.navigation_option', ['option' => 'reports'])
             @endif
             @include('partials.navigation_option', ['option' => 'settings'])
-            <li style="width:100%;">
-                <div class="nav-footer">
-                    @if (Auth::user()->registered)
-                        <a href="javascript:showContactUs()" title="{{ trans('texts.contact_us') }}">
-                            <i class="fa fa-envelope"></i>
-                        </a>
-                    @endif
+            <li style="width:100%;">                <div class="nav-footer">
+                    <a href="javascript:showContactUs()" target="_blank" title="{{ trans('texts.contact_us') }}">
+                        <i class="fa fa-envelope"></i>
+                    </a>
                     <a href="{{ url(NINJA_FORUM_URL) }}" target="_blank" title="{{ trans('texts.support_forum') }}">
                         <i class="fa fa-list-ul"></i>
                     </a>
-                    <a href="javascript:showKeyboardShortcuts()" title="{{ trans('texts.help') }}">
+                    <a href="javascript:showKeyboardShortcuts()" target="_blank" title="{{ trans('texts.help') }}">
                         <i class="fa fa-question-circle"></i>
                     </a>
                     <a href="{{ url(SOCIAL_LINK_FACEBOOK) }}" target="_blank" title="Facebook">
@@ -428,7 +438,7 @@
     <!-- /#left-sidebar-wrapper -->
 
     <div id="right-sidebar-wrapper" class="hide-phone" style="overflow-y:hidden">
-        <ul class="sidebar-nav {{ Auth::user()->dark_mode ? 'sidebar-nav-dark' : 'sidebar-nav-light' }}">
+        <ul class="sidebar-nav sidebar-nav-dark">
             {!! \App\Libraries\HistoryUtils::renderHtml(Auth::user()->account_id) !!}
         </ul>
     </div>
@@ -461,9 +471,9 @@
           @endif
 
           <div class="pull-right">
-              @yield('top-right')
-          </div>
-
+            @yield('top-right')
+        </div>
+        
           @if (!isset($showBreadcrumbs) || $showBreadcrumbs)
             {!! Form::breadcrumbs((isset($entity) && $entity->exists) ? $entity->present()->statusLabel : false) !!}
           @endif
@@ -474,11 +484,7 @@
             <div class="col-md-12">
 
               @if (Utils::isNinjaProd())
-                @if (Auth::check() && Auth::user()->hasActivePromo())
-                    {!! trans('texts.promotion_footer', [
-                            'link' => '<a href="javascript:showUpgradeModal()">' . trans('texts.click_here') . '</a>'
-                        ]) !!}
-                @elseif (Auth::check() && Auth::user()->isTrial())
+                @if (Auth::check() && Auth::user()->isTrial())
                   {!! trans(Auth::user()->account->getCountTrialDaysLeft() == 0 ? 'texts.trial_footer_last_day' : 'texts.trial_footer', [
                           'count' => Auth::user()->account->getCountTrialDaysLeft(),
                           'link' => '<a href="javascript:showUpgradeModal()">' . trans('texts.click_here') . '</a>'

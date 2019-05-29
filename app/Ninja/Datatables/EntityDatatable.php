@@ -28,7 +28,13 @@ class EntityDatatable
     {
         return [];
     }
-
+    public static function isInTags($user_id,$_tags){
+        $_tags = trim($_tags,",");
+        $tags = explode(",",$_tags);
+       
+        return in_array($user_id,$tags);
+    }
+    
     public function bulkActions()
     {
         return [

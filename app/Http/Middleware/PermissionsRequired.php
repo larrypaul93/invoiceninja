@@ -33,7 +33,9 @@ class PermissionsRequired
 
         // Get the current route actions.
         $actions = $route->getAction();
-
+        if($route->getUri() == "switch_account/{user_id}"){
+            return $next($request);
+        }
         // Check if we have any permissions to check the user has.
         if ($permissions = ! empty($actions['permissions']) ? $actions['permissions'] : null) {
             if (! Auth::user($guard)->hasPermission($permissions, ! empty($actions['permissions_require_all']))) {

@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Requests;
-
+use App\Libraries\HistoryUtils;
 use App\Models\Invoice;
 
 class InvoiceRequest extends EntityRequest
@@ -30,5 +30,18 @@ class InvoiceRequest extends EntityRequest
         }
 
         return $invoice;
+    }
+
+    public function authorize()
+    {
+        if ($this->entity()) {
+            if ($this->user()->can('view', $this->entity()) || $this->entity()->taggedUser($this->user())) {
+                HistoryUtils::trackViewed($this->entity());
+
+                return true;
+            }
+        } else {
+            return $this->user()->can('create', $this->entityType);
+        }
     }
 }

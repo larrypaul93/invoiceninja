@@ -23,17 +23,9 @@
         table.table thead .sorting_asc_disabled:after { content: '' !important }
         table.table thead .sorting_desc_disabled:after { content: '' !important }
 
-		@for ($i = 0; $i < count($columns); $i++)
-			table.dataTable td:nth-child({{ $i + 1 }}) {
-				@if ($columns[$i] == trans('texts.status'))
-					text-align: center;
-				@endif
-			}
-		@endfor
-
 	</style>
 
-	<div class="container" id="main-container">
+	<div class="container" id="main-container" style="min-height:800px">
 
 		<p>&nbsp;</p>
 
@@ -48,14 +40,12 @@
                 {!! Button::primary(trans("texts.recurring_invoices"))->asLinkTo(URL::to('/client/invoices/recurring')) !!}
             </div>
         @endif
-
         <h3>{{ $title }}</h3>
 
 		{!! Datatable::table()
 	    	->addColumn($columns)
 	    	->setUrl(route('api.client.' . $entityType . 's'))
 	    	->setOptions('sPaginationType', 'bootstrap')
-			->setOptions('aaSorting', [[$sortColumn, 'desc']])
 	    	->render('datatable') !!}
 	</div>
 
@@ -74,6 +64,50 @@
         </script>
     @endif
 
+    <div id="client-email" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <h4 class="modal-title">Email <span id="email-type-label">Invoice</span></h4>
+        </div>
+        {!! Former::open("/send-email/")->name("send-client-email")->method("POST") !!}
+            <div class="modal-body">
+                
+                {!! Former::hidden("id") !!}
+                {!! Former::hidden("type") !!}
+                {!! Former::input("name")->label("Receiver Name") !!}
+                {!! Former::email("email")->label("Receiver Email") !!}
+                {!! Former::textarea("message")->label("Message") !!}
+                
+                
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-success">Send</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        {!! Former::close() !!}    
+        </div>
+
+    </div>
+    </div>
+    <script>
+        String.prototype.ucwords = function() {
+            str = this.toLowerCase();
+            return str.replace(/(^([a-zA-Z\p{M}]))|([ -][a-zA-Z\p{M}])/g,
+                function(s){
+                return s.toUpperCase();
+                });
+        };
+        function sendClientEmail(type,id){
+            $("#email-type-label").text(type.ucwords());
+            $("#client-email input[name='type']").val(type);
+            $("#client-email input[name='id']").val(id);
+            $("#client-email").modal();
+        }
+    </script>
 
 	<p>&nbsp;</p>
 

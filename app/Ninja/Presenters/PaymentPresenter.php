@@ -32,6 +32,11 @@ class PaymentPresenter extends EntityPresenter
         return Utils::fromSqlDate($this->entity->payment_date);
     }
 
+    public function deposited()
+    {
+        return Utils::fromSqlDate($this->entity->deposited);
+    }
+
     public function month()
     {
         return Carbon::parse($this->entity->payment_date)->format('Y m');

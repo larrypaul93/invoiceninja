@@ -16,7 +16,7 @@ return [
 	|
 	*/
 
-	'driver' => env('SESSION_DRIVER', 'file'),
+	'driver' => env('SESSION_DRIVER', 'database'),
 
 	/*
 	|--------------------------------------------------------------------------
@@ -31,7 +31,7 @@ return [
 
 	'lifetime' => env('SESSION_LIFETIME', (60 * 8)),
 
-	'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', true),
+	'expire_on_close' => false,
 
 	/*
 	|--------------------------------------------------------------------------
@@ -109,7 +109,7 @@ return [
 	|
 	*/
 
-	'cookie' => 'ninja_session',
+	'cookie' => 'gd_billing_session',
 
 	/*
 	|--------------------------------------------------------------------------

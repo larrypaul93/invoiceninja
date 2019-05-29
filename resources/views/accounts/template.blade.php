@@ -3,13 +3,14 @@
         @if (isset($isReminder) && $isReminder)
 
             {!! Former::populateField('enable_' . $field, intval($account->{'enable_' . $field})) !!}
+            {!! Former::populateField('enable_' . $field, intval($account->{'enable_' . $field})) !!}
             @if (floatval($fee = $account->account_email_settings->{"late_fee{$number}_amount"}))
                 {!! Former::populateField('late_fee' . $number . '_amount', $fee) !!}
             @endif
             @if (floatval($fee = $account->account_email_settings->{"late_fee{$number}_percent"}))
                 {!! Former::populateField('late_fee' . $number . '_percent', $fee) !!}
             @endif
-
+            
             <div class="well" style="padding-bottom:20px">
                 <div class="row">
                     <div class="col-md-6">
@@ -56,79 +57,57 @@
                     </div>
                 </div>
             </div>
-
             <br/>
         @endif
+
+        {!! Former::populateField('email_template_' . $field,${'templates_'.$field}) !!}
         <div class="row">
-            <div class="col-md-6">
+            <div class="col-md-12">
+                {!! Former::select('email_template_' . $field)
+                            ->label('template')
+                            ->fromQuery($templates, function($model) { return $model->name; }, 'id') !!}
+            </div>
+        </div>
+        <div class="row">
+           {{--  <div class="col-md-6">
                 <div class="pull-right"><a href="#" onclick="return resetText('{{ 'subject' }}', '{{ $field }}')">{{ trans("texts.reset") }}</a></div>
                 {!! Former::text('email_subject_' . $field)
                         ->label(trans('texts.subject'))
                         ->appendIcon('question-sign')
                         ->addGroupClass('email-subject') !!}
-            </div>
-        <div class="col-md-6">
+            </div> --}}
+        <div class="col-md-12">
             <p>&nbsp;<p/>
                 <div id="{{ $field }}_subject_preview"></div>
-            </div>
         </div>
-        <div class="row">
-            <br/>
-            <div class="col-md-6">
-                <div class="pull-right"><a href="#" onclick="return resetText('{{ 'template' }}', '{{ $field }}')">{{ trans("texts.reset") }}</a></div>
-                {!! Former::textarea('email_template_' . $field)
-                        ->label(trans('texts.body'))
-                        ->style('display:none') !!}
-                <div id="{{ $field }}Editor" class="form-control" style="min-height:160px">
-                </div>
-            </div>
-            <div class="col-md-6">
+        <div class="col-md-12">
                 <p>&nbsp;<p/>
-                <div id="{{ $field }}_template_preview"></div>
+                <div id="{{ $field }}_template_preview" class="template-preview"><iframe></iframe></div>
             </div>
         </div>
         <p>&nbsp;<p/>
-        <div class="row">
-            <div class="pull-left show-when-ready" style="display:none">
-                @include('partials/quill_toolbar', ['name' => $field])
-            </div>
-            <div class="pull-right" style="padding-top:13px;text-align:right">
-                {!! Button::normal(trans('texts.raw'))->withAttributes(['onclick' => 'showRaw("'.$field.'")'])->small() !!}
-                {!! Button::primary(trans('texts.preview'))->withAttributes(['onclick' => 'serverPreview("'.$field.'")'])->small() !!}
-            </div>
-        </div>
+        
     </div>
 </div>
 
 <script type="text/javascript">
     $(function() {
-        var editor = new Quill('#{{ $field }}Editor', {
-          modules: {
-            'toolbar': { container: '#{{ $field }}Toolbar' },
-            'link-tooltip': true
-          },
-          theme: 'snow'
-        });
-        editor.setHTML($('#email_template_{{ $field }}').val());
-        editor.on('text-change', function(delta, source) {
-              if (source == 'api') {
-                return;
-              }
-              var html = editors['{{ $field }}'].getHTML();
-              $('#email_template_{{ $field }}').val(html);
-              refreshPreview();
-              NINJA.formIsChanged = true;
-            });
-        editors['{{ $field }}'] = editor;
+        
 
-        $('#field_{{ $field }}').change(function() {
-            setDirectionShown('{{ $field }}');
-        })
-        setDirectionShown('{{ $field }}');
+        
 
-        $('.email-subject .input-group-addon').click(function() {
-            $('#templateHelpModal').modal('show');
+        $("#email_template_{{$field}}").on("change",function(){
+            $.getJSON("/api/templates/"+$(this).val()+"/json",function(res){
+               
+            $('#{{ $field }}_template_preview iframe').contents().find('body').html(renderEmailTemplate(res['content']));
+            $("#{{ $field }}_subject_preview").html(renderEmailTemplate(res['subject']));
+
+                //refreshPreview();
         });
+        });
+        $("#email_template_{{$field}}").trigger("change");
     });
+
+
 
 </script>

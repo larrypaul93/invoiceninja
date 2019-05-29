@@ -3,33 +3,29 @@ body {
 }
 
 .nav-tabs.nav-justified>.active>a, .nav-tabs.nav-justified>.active>a:hover, .nav-tabs.nav-justified>.active>a:focus {
-    background-color: #127cc0;
+    background-color: #337ab7;
 }
 
 .navbar .dropdown-menu {
-    border-top: 1px solid #127cc0;
+    border-top: 1px solid #337ab7;
 }
 
 .active-clients {
-    background-color: #127cc0;
+    background-color: #337ab7;
 }
 
 .pagination>.active>a, .pagination>.active>span, .pagination>.active>a:hover, .pagination>.active>span:hover, .pagination>.active>a:focus, .pagination>.active>span:focus {
-    background-color: #127cc0;
-    border-color: #127cc0;
+    background-color: #337ab7;
+    border-color: #337ab7;
 }
 
 .navbar,
 .navbar-collapse {
-    xbackground-color: #337ab7 !important;
-    background-color: #127cc0 !important;
+    background-color: #337ab7 !important;
 }
 
 .panel-heading {
-    xbackground-color: #286090 !important;
-    background-color: #093e60 !important;
-    xbackground-color: #054B78 !important;
-    xbackground-color: #07619B !important;
+    background-color: #286090 !important;
 }
 
 
@@ -43,68 +39,38 @@ thead th {
     border-left: 1px solid #999;
 }
 
-.sidebar-nav-dark {
+.sidebar-nav {
     background-color: #313131;
 }
 
-.sidebar-nav-dark li {
+.sidebar-nav li {
     border-bottom:solid 1px #444444;
 }
 
-.sidebar-nav-dark li > a {
-    color: #aaa;
+.sidebar-nav i.fa {
+    color: white;
 }
 
-.sidebar-nav-dark li:hover > a,
-.sidebar-nav-dark li > a.active {
-    color: #fff;
-}
-
-.sidebar-nav-dark li:hover,
-.sidebar-nav-dark li.active {
-    background: rgba(255,255,255,0.1);
-}
-
-
-
-.sidebar-nav-light {
-    background-color: #FFFFFF;
-}
-
-.sidebar-nav-light li {
-    border-bottom:solid 1px #DDD;
-}
-
-.sidebar-nav-light li > a {
-    color: #757575;
-}
-
-.sidebar-nav-light li:hover > a,
-.sidebar-nav-light li > a.active {
-    color: #363636;
-}
-
-.sidebar-nav-light li:hover,
-.sidebar-nav-light li.active {
-    background: rgba(140,140,140,0.1);
-}
-
-
-
-.menu-toggle i {
+.menu-toggle i,
+.sidebar-nav li > a {
     color: #999999;
 }
 
-.menu-toggle:hover {
+.menu-toggle:hover i,
+.sidebar-nav li:hover > a,
+.sidebar-nav li > a.active {
     color: #fff;
+}
+
+.sidebar-nav li:hover,
+.sidebar-nav li.active {
+    background: rgba(255,255,255,0.1);
 }
 
 .menu-toggle {
     color: #999 !important;
 }
 
-.sidebar-nav a.btn i.fa,
-.navbar-header:hover i,
 .menu-toggle:hover {
     color: #fff !important;
 }

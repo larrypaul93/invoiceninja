@@ -22,13 +22,15 @@ class Payment extends EntityModel
     /**
      * @var array
      */
-    protected $fillable = [
-        'transaction_reference',
+     protected $fillable = [
         'private_notes',
+        'public_notes',
+        'deposited',
+        'transaction_reference',
         'exchange_rate',
         'exchange_currency_id',
     ];
-
+    
     public static $statusClasses = [
         PAYMENT_STATUS_PENDING => 'info',
         PAYMENT_STATUS_COMPLETED => 'success',
@@ -36,6 +38,8 @@ class Payment extends EntityModel
         PAYMENT_STATUS_PARTIALLY_REFUNDED => 'primary',
         PAYMENT_STATUS_VOIDED => 'default',
         PAYMENT_STATUS_REFUNDED => 'default',
+        PAYMENT_STATUS_PRE_AUTH => 'success',
+        PAYMENT_STATUS_PRE_COMPLETED => 'success',
     ];
 
     /**
@@ -85,6 +89,11 @@ class Payment extends EntityModel
     public function account()
     {
         return $this->belongsTo('App\Models\Account');
+    }
+
+    public function documents()
+    {
+        return $this->hasMany('App\Models\Document')->orderBy('id');
     }
 
     /**

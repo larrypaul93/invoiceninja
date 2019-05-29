@@ -11,6 +11,11 @@
         textarea {
             min-height: 150px !important;
         }
+        
+        .template-preview iframe {
+            width:100%;
+            height:500px;
+        }
     </style>
 
     <script type="text/javascript">
@@ -26,13 +31,13 @@
 
     {!! Former::vertical_open()->addClass('warn-on-exit') !!}
 
-    @foreach (App\Models\AccountEmailSettings::$templates as $type)
+    {{-- @foreach ([ENTITY_INVOICE, ENTITY_QUOTE, ENTITY_PAYMENT, REMINDER1, REMINDER2, REMINDER3] as $type)
         @foreach (['subject', 'template'] as $field)
             {{ Former::populateField("email_{$field}_{$type}", $templates[$type][$field]) }}
         @endforeach
-    @endforeach
+    @endforeach --}}
 
-    @foreach ([TEMPLATE_REMINDER1, TEMPLATE_REMINDER2, TEMPLATE_REMINDER3] as $type)
+    @foreach ([REMINDER1, REMINDER2, REMINDER3] as $type)
         @foreach (['enable', 'num_days', 'direction', 'field'] as $field)
             {{ Former::populateField("{$field}_{$type}", $account->{"{$field}_{$type}"}) }}
         @endforeach
@@ -49,11 +54,17 @@
                         <li role="presentation" class="active"><a href="#invoice" aria-controls="notes" role="tab" data-toggle="tab">{{ trans('texts.invoice_email') }}</a></li>
                         <li role="presentation"><a href="#quote" aria-controls="terms" role="tab" data-toggle="tab">{{ trans('texts.quote_email') }}</a></li>
                         <li role="presentation"><a href="#payment" aria-controls="footer" role="tab" data-toggle="tab">{{ trans('texts.payment_email') }}</a></li>
+                        <li role="presentation"><a href="#pre_auth" aria-controls="footer" role="tab" data-toggle="tab">{{ trans('texts.pre_auth_email') }}</a></li>
+                        <li role="presentation"><a href="#pre_completion" aria-controls="footer" role="tab" data-toggle="tab">{{ trans('texts.pre_completion_email') }}</a></li>
                     </ul>
                     <div class="tab-content">
-                        @include('accounts.template', ['field' => 'invoice', 'active' => true])
-                        @include('accounts.template', ['field' => 'quote'])
-                        @include('accounts.template', ['field' => 'payment'])
+                        @include('accounts.template', ['field' => 'invoice', 'active' => true,'number'=>0])
+                        @include('accounts.template', ['field' => 'quote','number'=>0])
+                        @include('accounts.template', ['field' => 'payment','number'=>0])
+                        @include('accounts.template', ['field' => 'pre_auth','number'=>0])
+                        @include('accounts.template', ['field' => 'pre_completion','number'=>0])
+                        
+
                     </div>
                 </div>
             </div>
@@ -75,16 +86,69 @@
                         <li role="presentation"><a href="#reminder3" aria-controls="footer" role="tab" data-toggle="tab">{{ trans('texts.third_reminder') }}</a></li>
                     </ul>
                     <div class="tab-content">
-                        @include('accounts.template', ['field' => 'reminder1', 'number' => 1, 'isReminder' => true, 'active' => true])
-                        @include('accounts.template', ['field' => 'reminder2', 'number' => 2, 'isReminder' => true])
-                        @include('accounts.template', ['field' => 'reminder3', 'number' => 3, 'isReminder' => true])
+                        @include('accounts.template', ['field' => 'reminder1', 'isReminder' => true, 'active' => true,'number'=>1])
+                        @include('accounts.template', ['field' => 'reminder2', 'isReminder' => true,'number'=>2])
+                        @include('accounts.template', ['field' => 'reminder3', 'isReminder' => true,'number'=>3])
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="panel-title">{!! trans('texts.admin_email_templates') !!}</h3>
+        </div>
+        <div class="panel-body">
+            <div class="row">
+                <div role="tabpanel">
+                    <ul class="nav nav-tabs" role="tablist" style="border: none">
+                       <li role="presentation" class="active"><a href="#admin_pre_auth" aria-controls="footer" role="tab" data-toggle="tab">{{ trans('texts.pre_auth_admin_email') }}</a></li>
+                        <li role="presentation"><a href="#admin_pre_completion" aria-controls="footer" role="tab" data-toggle="tab">{{ trans('texts.pre_completion_admin_email') }}</a></li>
+                        <li role="presentation" ><a href="#admin_invoice" aria-controls="notes" role="tab" data-toggle="tab">{{ trans('texts.invoice_admin_email') }}</a></li>
+                        <li role="presentation"><a href="#admin_quote" aria-controls="terms" role="tab" data-toggle="tab">{{ trans('texts.quote_admin_email') }}</a></li>
+                        <li role="presentation"><a href="#admin_payment" aria-controls="footer" role="tab" data-toggle="tab">{{ trans('texts.payment_admin_email') }}</a></li>
+                    </ul>
+                    <div class="tab-content">
+                       @include('accounts.template', ['field' => 'admin_invoice','active'=>true])
+                        @include('accounts.template', ['field' => 'admin_payment'])
+                        @include('accounts.template', ['field' => 'admin_quote'])
+                        @include('accounts.template', ['field' => 'admin_pre_auth'])
+                        @include('accounts.template', ['field' => 'admin_pre_completion'])
 
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <p>&nbsp;</p>
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="panel-title">{!! trans('texts.cleint_service_email') !!}</h3>
+        </div>
+        <div class="panel-body">
+            <div class="row">
+                <div role="tabpanel">
+                    <ul class="nav nav-tabs" role="tablist" style="border: none">
+                        <li role="presentation" class="active"><a href="#client_invoice" aria-controls="notes" role="tab" data-toggle="tab">{{ trans('texts.client_invoice_email') }}</a></li>
+                        <li role="presentation"><a href="#client_quote" aria-controls="terms" role="tab" data-toggle="tab">{{ trans('texts.client_quote_email') }}</a></li>
+                        <li role="presentation"><a href="#client_report" aria-controls="footer" role="tab" data-toggle="tab">{{ trans('texts.client_report_email') }}</a></li>
+                    </ul>
+                    <div class="tab-content">
+                        @include('accounts.template', ['field' => 'client_invoice', 'active' => true])
+                        @include('accounts.template', ['field' => 'client_quote'])
+                        @include('accounts.template', ['field' => 'client_report'])
+                       
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <p>&nbsp;</p>
+    
     <div class="modal fade" id="templatePreviewModal" tabindex="-1" role="dialog" aria-labelledby="templatePreviewModalLabel" aria-hidden="true">
         <div class="modal-dialog" style="width:800px">
             <div class="modal-content">
@@ -132,6 +196,77 @@
         </div>
     </div>
 
+    <div class="modal fade" id="templateHelpModal" tabindex="-1" role="dialog" aria-labelledby="templateHelpModalLabel" aria-hidden="true">
+        <div class="modal-dialog" style="min-width:150px">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title" id="templateHelpModalLabel">{{ trans('texts.template_help_title') }}</h4>
+                </div>
+
+                <div class="container" style="width: 100%; padding-bottom: 0px !important">
+                <div class="panel panel-default">
+                <div class="panel-body">
+                    <p>{{ trans('texts.template_help_1') }}</p>
+                    <ul>
+                        @foreach([
+                            'footer',
+                            'account',
+                            'dueDate',
+                            'invoiceDate',
+                            'client',
+                            'amount',
+                            'contact',
+                            'firstName',
+                            'invoice',
+                            'quote',
+                            'password',
+                            'documents',
+                            'viewLink',
+                            'viewButton',
+                            'paymentLink',
+                            'paymentButton',
+                            'autoBill',
+                            'portalLink',
+                            'portalButton',
+                        ] as $field)
+                            <li>${{ $field }}</li>
+                        @endforeach
+                        @if ($account->custom_client_label1)
+                            <li>$customClient1</li>
+                        @endif
+                        @if ($account->custom_client_label2)
+                            <li>$customClient2</li>
+                        @endif
+                        @if ($account->custom_invoice_text_label1)
+                            <li>$customInvoice1</li>
+                        @endif
+                        @if ($account->custom_invoice_text_label2)
+                            <li>$customInvoice2</li>
+                        @endif
+                        @if (count($account->account_gateways) > 0)
+                            @foreach (\App\Models\Gateway::$gatewayTypes as $type)
+                                @if ($account->getGatewayByType($type))
+                                    @if ($type != GATEWAY_TYPE_TOKEN)
+                                        <li>${{ Utils::toCamelCase(\App\Models\GatewayType::getAliasFromId($type)) }}Link</li>
+                                        <li>${{ Utils::toCamelCase(\App\Models\GatewayType::getAliasFromId($type)) }}Button</li>
+                                    @endif
+                                @endif
+                            @endforeach
+                        @endif
+                    </ul>
+                </div>
+                </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-dismiss="modal">{{ trans('texts.close') }}</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
     @if (Auth::user()->hasFeature(FEATURE_EMAIL_TEMPLATES_REMINDERS))
         <center>
             {!! Button::success(trans('texts.save'))->submit()->large()->appendIcon(Icon::create('floppy-disk')) !!}
@@ -148,12 +283,13 @@
 
     <script type="text/javascript">
 
-        var entityTypes = {!! json_encode(App\Models\AccountEmailSettings::$templates) !!};
+        var entityTypes = ['invoice', 'quote', 'payment', 'reminder1', 'reminder2', 'reminder3'];
         var stringTypes = ['subject', 'template'];
         var templates = {!! json_encode($defaultTemplates) !!};
         var account = {!! Auth::user()->account !!};
 
         function refreshPreview() {
+            return;
             for (var i=0; i<entityTypes.length; i++) {
                 var entityType = entityTypes[i];
                 for (var j=0; j<stringTypes.length; j++) {
@@ -161,8 +297,7 @@
                     var idName = '#email_' + stringType + '_' + entityType;
                     var value = $(idName).val();
                     var previewName = '#' + entityType + '_' + stringType + '_preview';
-                    var isQuote = entityType == "{{ ENTITY_QUOTE }}";
-                    $(previewName).html(renderEmailTemplate(value, false, isQuote));
+                    $(previewName).html(renderEmailTemplate(value));
                 }
             }
         }
@@ -192,10 +327,22 @@
                 }
             }
 
+            for (var i=1; i<=3; i++) {
+                $('#enable_reminder' + i).bind('click', {id: i}, function(event) {
+                    enableReminder(event.data.id)
+                });
+                enableReminder(i);
+            }
+
             $('.show-when-ready').show();
 
             refreshPreview();
         });
+
+        function enableReminder(id) {
+            var checked = $('#enable_reminder' + id).is(':checked');
+            $('.enable-reminder' + id).attr('disabled', !checked)
+        }
 
         function setDirectionShown(field) {
             var val = $('#field_' + field).val();
@@ -235,6 +382,38 @@
             var fieldName = 'email_template_' + field;
             $('#' + fieldName).val(value);
             refreshPreview();
+        }
+
+        // https://gist.github.com/sente/1083506
+        function formatXml(xml) {
+            var formatted = '';
+            var reg = /(>)(<)(\/*)/g;
+            xml = xml.replace(reg, '$1\r\n$2$3');
+            var pad = 0;
+            jQuery.each(xml.split('\r\n'), function(index, node) {
+                var indent = 0;
+                if (node.match( /.+<\/\w[^>]*>$/ )) {
+                    indent = 0;
+                } else if (node.match( /^<\/\w/ )) {
+                    if (pad != 0) {
+                        pad -= 1;
+                    }
+                } else if (node.match( /^<\w[^>]*[^\/]>.*$/ )) {
+                    indent = 1;
+                } else {
+                    indent = 0;
+                }
+
+                var padding = '';
+                for (var i = 0; i < pad; i++) {
+                    padding += '  ';
+                }
+
+                formatted += padding + node + '\r\n';
+                pad += indent;
+            });
+
+            return formatted;
         }
 
     </script>

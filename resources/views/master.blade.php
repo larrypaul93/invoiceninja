@@ -3,35 +3,43 @@
 <head>
     <!-- Source: https://github.com/invoiceninja/invoiceninja -->
     <!-- Version: {{ NINJA_VERSION }} -->
-    @if (env('MULTI_DB_ENABLED'))
-    <!-- Authenticated: {{ Auth::check() ? 'Yes' : 'No' }} -->
-    <!-- Server: {{ session(SESSION_DB_SERVER, 'Unset') }} -->
-    @endif
     <meta charset="utf-8">
 
-    @if (Utils::isWhiteLabel() && ! isset($title))
+    @if (Utils::isWhiteLabel())
         <title>{{ trans('texts.client_portal') }}</title>
-        <link href="{{ asset('ic_cloud_circle.png') }}" rel="shortcut icon" type="image/png">
+       
+        <link href="https://www.greaseducks.com/images/mobile_icons/apple-touch-icon.png" rel="apple-touch-icon"/>
+        <link href="https://www.greaseducks.com/images/mobile_icons/apple-touch-icon-76x76.png" rel="apple-touch-icon" sizes="76x76"/>
+        <link href="https://www.greaseducks.com/images/mobile_icons/apple-touch-icon-120x120.png" rel="apple-touch-icon" sizes="120x120"/>
+        <link href="https://www.greaseducks.com/images/mobile_icons/apple-touch-icon-152x152.png" rel="apple-touch-icon" sizes="152x152"/>
+        <link href="https://www.greaseducks.com/images/mobile_icons/apple-touch-icon-180x180.png" rel="apple-touch-icon" sizes="180x180"/>
+        <link href="https://www.greaseducks.com/images/mobile_icons/icon-hires.png" rel="icon" sizes="192x192"/>
+        <link href="https://www.greaseducks.com/images/mobile_icons/icon-normal.png" rel="icon" sizes="128x128"/>
+        <link rel="icon" type="image/x-icon" href="https://www.greaseducks.com/images/favicon.ico"/> 
+        <meta name="apple-mobile-web-app-title" content="Grease Ducks Billing">
+        <meta name="application-name" content="Grease Ducks Billing">
     @else
-        <title>{{ isset($title) ? ($title . ' | Invoice Ninja') : ('Invoice Ninja | ' . trans('texts.app_title')) }}</title>
+        <title>{{ isset($title) ? ($title . ' | Grease Ducks Billing') : ('Grease Ducks Billing | ' . trans('texts.app_title')) }}</title>
         <meta name="description" content="{{ isset($description) ? $description : trans('texts.app_description') }}"/>
-        <link href="{{ asset('favicon-v2.png') }}" rel="shortcut icon" type="image/png">
+        <link href="http://www.greaseducks.com/images/favicon.ico" rel="shortcut icon" type="image/png">
 
-        <meta property="og:site_name" content="Invoice Ninja"/>
+        <meta property="og:site_name" content="Grease Ducks Billing"/>
         <meta property="og:url" content="{{ SITE_URL }}"/>
-        <meta property="og:title" content="Invoice Ninja"/>
+        <meta property="og:title" content="Grease Ducks Billing"/>
         <meta property="og:image" content="{{ SITE_URL }}/images/round_logo.png"/>
         <meta property="og:description" content="Simple, Intuitive Invoicing."/>
 
         <!-- http://realfavicongenerator.net -->
-        <link rel="apple-touch-icon" sizes="180x180" href="{{ url('apple-touch-icon.png') }}">
-        <link rel="icon" type="image/png" href="{{ url('favicon-32x32.png') }}" sizes="32x32">
-        <link rel="icon" type="image/png" href="{{ url('favicon-16x16.png') }}" sizes="16x16">
-        <link rel="manifest" href="{{ url('manifest.json') }}">
-        <link rel="mask-icon" href="{{ url('safari-pinned-tab.svg') }}" color="#3bc65c">
-        <link rel="shortcut icon" href="{{ url('favicon.ico') }}">
-        <meta name="apple-mobile-web-app-title" content="Invoice Ninja">
-        <meta name="application-name" content="Invoice Ninja">
+        <link href="http://www.greaseducks.com/images/mobile_icons/apple-touch-icon.png" rel="apple-touch-icon"/>
+        <link href="http://www.greaseducks.com/images/mobile_icons/apple-touch-icon-76x76.png" rel="apple-touch-icon" sizes="76x76"/>
+        <link href="http://www.greaseducks.com/images/mobile_icons/apple-touch-icon-120x120.png" rel="apple-touch-icon" sizes="120x120"/>
+        <link href="http://www.greaseducks.com/images/mobile_icons/apple-touch-icon-152x152.png" rel="apple-touch-icon" sizes="152x152"/>
+        <link href="http://www.greaseducks.com/images/mobile_icons/apple-touch-icon-180x180.png" rel="apple-touch-icon" sizes="180x180"/>
+        <link href="http://www.greaseducks.com/images/mobile_icons/icon-hires.png" rel="icon" sizes="192x192"/>
+        <link href="http://www.greaseducks.com/images/mobile_icons/icon-normal.png" rel="icon" sizes="128x128"/>
+        <link rel="icon" type="image/x-icon" href="images/favicon.ico"/> 
+        <meta name="apple-mobile-web-app-title" content="Grease Ducks Billing">
+        <meta name="application-name" content="Grease Ducks Billing">
         <meta name="theme-color" content="#ffffff">
     @endif
 
@@ -49,27 +57,23 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <link rel="canonical" href="{{ NINJA_APP_URL }}/{{ Request::path() }}"/>
 
-    @yield('head_css')
-
     <script src="{{ asset('built.js') }}?no_cache={{ NINJA_VERSION }}" type="text/javascript"></script>
 
     <script type="text/javascript">
+        var TODAY_DATE = '{{date('M d, Y')}}';
         var NINJA = NINJA || {};
         NINJA.fontSize = 9;
         NINJA.isRegistered = {{ \Utils::isRegistered() ? 'true' : 'false' }};
 
         window.onerror = function (errorMsg, url, lineNumber, column, error) {
-            // Error in hosted third party library
             if (errorMsg.indexOf('Script error.') > -1) {
                 return;
             }
-            // Error due to incognito mode
-            if (errorMsg.indexOf('DOM Exception 22') > -1) {
-                return;
-            }
+
             try {
                 // Use StackTraceJS to parse the error context
                 if (error) {
+                    var message = error.message ? error.message : error;
                     StackTrace.fromError(error).then(function (result) {
                         var gps = new StackTraceGPS();
                         gps.findFunctionName(result[0]).then(function (result) {
@@ -81,9 +85,7 @@
                 }
 
                 trackEvent('/error', errorMsg);
-            } catch (exception) {
-                console.log('Failed to log error');
-                console.log(exception);
+            } catch (err) {
             }
 
             return false;
@@ -124,9 +126,7 @@
             "bInfo": true,
             "oLanguage": {
                 'sEmptyTable': "{{ trans('texts.empty_table') }}",
-                'sInfoEmpty': "{{ trans('texts.empty_table_footer') }}",
                 'sLengthMenu': '_MENU_ {{ trans('texts.rows') }}',
-                'sInfo': "{{ trans('texts.datatable_info', ['start' => '_START_', 'end' => '_END_', 'total' => '_TOTAL_']) }}",
                 'sSearch': ''
             }
         });
@@ -195,12 +195,7 @@
 
 <body class="body">
 
-@if (request()->phantomjs)
-    <script>
-        function trackEvent(category, action) {
-        }
-    </script>
-@elseif (Utils::isNinjaProd() && isset($_ENV['TAG_MANAGER_KEY']) && $_ENV['TAG_MANAGER_KEY'])
+@if (Utils::isNinjaProd() && isset($_ENV['TAG_MANAGER_KEY']) && $_ENV['TAG_MANAGER_KEY'])
     <!-- Google Tag Manager -->
     <noscript>
         <iframe src="//www.googletagmanager.com/ns.html?id={{ $_ENV['TAG_MANAGER_KEY'] }}"
@@ -254,6 +249,42 @@
 
 @yield('body')
 
+<div class="modal fade" id="viodInvoiceModal" tabindex="-1" role="dialog" aria-labelledby="viodInvoiceModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h4 class="modal-title" id="myModalLabel">Void Invoice</h4>
+      </div>
+       {!! Former::open("")->method("POST")->rules(array(
+                        'voided_reason' => 'required',
+                    )); !!}
+      <div class="container" style="width: 100%; padding-bottom: 0px !important">
+        <div class="panel panel-default">
+            <div class="panel-body">
+
+                <div >
+                   
+                     {!! Former::text('voided_reason') !!}
+                     
+                </div>
+
+            
+
+            
+
+            </div>
+        </div>
+
+        <div class="modal-footer" id="" style="margin-top: 0px;padding-right:0px">
+            <button type="button" class="btn btn-default" id="closeSignUpButton" data-dismiss="modal">Close <i class="glyphicon glyphicon-remove-circle"></i></button>
+            <button type="submit" class="btn btn-primary" >Save <i class="glyphicon glyphicon-floppy-disk"></i></button>
+        </div>
+      </div>
+       {!! Former::close() !!}
+    </div>
+  </div>
+</div>
 <script type="text/javascript">
     NINJA.formIsChanged = {{ isset($formIsChanged) && $formIsChanged ? 'true' : 'false' }};
 
@@ -273,8 +304,6 @@
                 fbq('track', 'Purchase', {value: '{{ session('trackEventAmount') }}', currency: 'USD'});
             @endif
         @endif
-
-        $('[data-toggle="tooltip"]').tooltip();
 
         @if (Session::has('onReady'))
         {{ Session::get('onReady') }}

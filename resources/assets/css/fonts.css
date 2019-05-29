@@ -53,3 +53,16 @@
        url('../fonts/Roboto-900/Roboto-900.ttf') format('truetype'),
        url('../fonts/Roboto-900/Roboto-900.svg#Roboto') format('svg');
 }
+
+@media print {
+  .pdf-print * {
+      display: none;
+  }
+  .pdf-print #wrapper,.pdf-print,#mainContent,#mainContent .container, #page-content-wrapper, .pdf-print .container-fluid, .pdf-print form.main-form,.pdf-print form.main-form > div, .pdf-print #pdfCanvas,  .pdf-print #pdfCanvas canvas {
+      display: block;
+      margin:auto;
+      padding:0;
+      background:white !important;
+      border: 0 !important;
+  }
+}

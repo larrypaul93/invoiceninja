@@ -1,5 +1,8 @@
 @if (empty($hide_pdf))
+{{--
 <object id="pdfObject" type="application/pdf" style="display:block;background-color:#525659;border:solid 2px #9a9a9a;" frameborder="1" width="100%" height="{{ isset($pdfHeight) ? $pdfHeight : 1180 }}px"></object>
+--}}
+
 <div id="pdfCanvas" style="display:none;width:100%;background-color:#525659;border:solid 2px #9a9a9a;padding-top:40px;text-align:center">
     <canvas id="theCanvas" style="max-width:100%;border:solid 1px #CCCCCC;"></canvas>
 </div>
@@ -84,6 +87,10 @@
     invoice.image = window.accountLogo;
     invoice.imageWidth = {{ $account->getLogoWidth() }};
     invoice.imageHeight = {{ $account->getLogoHeight() }};
+    @if(isset($invitation) && !empty($invitation->signature_base64))
+      invoice.signature = "data:image/png;base64,{{$invitation->signature_base64}}";
+      invoice.signature_date = "{{date("M d, Y",strtotime($invitation->signature_date))}}";
+    @endif
   }
   @endif
 
@@ -103,33 +110,18 @@
   @endif
 
   var invoiceLabels = {!! json_encode($account->getInvoiceLabels()) !!};
+
+  if (window.invoice) {
+    //invoiceLabels.item = invoice.has_tasks ? invoiceLabels.date : invoiceLabels.item_orig;
+    invoiceLabels.quantity = invoice.has_tasks ? invoiceLabels.hours : invoiceLabels.quantity_orig;
+    invoiceLabels.unit_cost = invoice.has_tasks ? invoiceLabels.rate : invoiceLabels.unit_cost_orig;
+  }
+
   var isRefreshing = false;
   var needsRefresh = false;
 
   function refreshPDF(force) {
-    try {
-        return getPDFString(refreshPDFCB, force);
-    } catch (exception) {
-        @if (Utils::isTravis())
-            var message = exception.message || '';
-            if (message.indexOf('Attempting to change value of a readonly property') >= 0) {
-                // do nothing
-            } else {
-                throw exception;
-            }
-        @else
-            console.warn('Failed to generate PDF: %s', exception.message);
-            var href = location.href;
-            if (href.indexOf('/view/') > 0 && href.indexOf('phantomjs') == -1) {
-                var url = href.replace('/view/', '/download/') + '?base64=true';
-                $.get(url, function(result) {
-                    if (result && result.indexOf('data:application/pdf') == 0) {
-                        refreshPDFCB(result);
-                    }
-                })
-            }
-        @endif
-    }
+    return getPDFString(refreshPDFCB, force);
   }
 
   function refreshPDFCB(string) {
@@ -141,6 +133,10 @@
     var forceJS = {{ Auth::check() && Auth::user()->force_pdfjs ? 'true' : 'false' }};
     // Use the browser's built in PDF viewer
     if ((isChrome || isFirefox) && ! forceJS && ! isMobile) {
+      $("#printPdfButton").hide();
+      if(!document.getElementById('pdfObject'))
+      $('<object id="pdfObject" type="application/pdf" style="display:block;background-color:#525659;border:solid 2px #9a9a9a;" frameborder="1" width="100%" height="{{ isset($pdfHeight) ? $pdfHeight : 1180 }}px"></object>').insertBefore($("#pdfCanvas"))
+    
       document.getElementById('pdfObject').data = string;
     // Use PDFJS to view the PDF
     } else {
@@ -151,25 +147,33 @@
       isRefreshing = true;
       var pdfAsArray = convertDataURIToBinary(string);
       PDFJS.getDocument(pdfAsArray).then(function getPdfHelloWorld(pdf) {
+          var wrapper = document.getElementById('pdfCanvas');
+          wrapper.innerHTML = '';
+        for(var i = 1; i <= pdf.numPages; i++ ){
+            pdf.getPage(i).then(function getPageHelloWorld(page) {
+                var scale = 1.5;
+                var viewport = page.getViewport(scale);
+                var canvas = document.createElement("canvas");
+                wrapper.appendChild(canvas);
+                canvas.style.cssText = "max-width:100%;border:solid 1px #CCCCCC;";
+                //var canvas = document.getElementById('theCanvas');
+                var context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
 
-        pdf.getPage(1).then(function getPageHelloWorld(page) {
-          var scale = 1.5;
-          var viewport = page.getViewport(scale);
+                page.render({canvasContext: context, viewport: viewport});
+                $('#pdfObject').hide();
+                $('#pdfCanvas').show();
+                    isRefreshing = false;
+                    if (needsRefresh) {
+                        needsRefresh = false;
+                        refreshPDF();
+                    }
 
-          var canvas = document.getElementById('theCanvas');
-          var context = canvas.getContext('2d');
-          canvas.height = viewport.height;
-          canvas.width = viewport.width;
 
-          page.render({canvasContext: context, viewport: viewport});
-          $('#pdfObject').hide();
-          $('#pdfCanvas').show();
-          isRefreshing = false;
-          if (needsRefresh) {
-            needsRefresh = false;
-            refreshPDF();
-          }
-        });
+            });
+        }
+
       });
     }
   }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ClientRequest;
 use App\Http\Requests\CreateClientRequest;
+
 use App\Http\Requests\UpdateClientRequest;
 use App\Models\Account;
 use App\Models\Client;
@@ -13,6 +14,12 @@ use App\Models\Task;
 use App\Ninja\Datatables\ClientDatatable;
 use App\Ninja\Repositories\ClientRepository;
 use App\Services\ClientService;
+use App\Services\ContactService;
+use App\Models\ServiceReport;
+use App\Models\Country;
+use App\Models\State;
+use App\Models\User;
+use App\Models\Timezone;
 use Auth;
 use Cache;
 use Input;
@@ -26,14 +33,16 @@ class ClientController extends BaseController
 {
     protected $clientService;
     protected $clientRepo;
+    protected $contactService;
     protected $entityType = ENTITY_CLIENT;
 
-    public function __construct(ClientRepository $clientRepo, ClientService $clientService)
+    public function __construct(ClientRepository $clientRepo, ClientService $clientService,ContactService $contactService)
     {
         //parent::__construct();
 
         $this->clientRepo = $clientRepo;
         $this->clientService = $clientService;
+        $this->contactService = $contactService;
     }
 
     /**
@@ -56,9 +65,15 @@ class ClientController extends BaseController
         $search = Input::get('sSearch');
         $userId = Auth::user()->filterId();
 
-        return $this->clientService->getDatatable($search, $userId);
+        return $this->clientService->getDatatable($search, false);
     }
 
+    public function getContactDatatable($clientPublicId){
+        $search = Input::get('sSearch');
+        $clientId = Client::getPrivateId($clientPublicId);
+
+        return $this->contactService->getDatatable($clientId, $search );
+    }
     /**
      * Store a newly created resource in storage.
      *
@@ -98,7 +113,6 @@ class ClientController extends BaseController
         if ($user->can('create', ENTITY_RECURRING_INVOICE)) {
             $actionLinks[] = ['label' => trans('texts.new_recurring_invoice'), 'url' => URL::to('/recurring_invoices/create/'.$client->public_id)];
         }
-
         if (! empty($actionLinks)) {
             $actionLinks[] = \DropdownButton::DIVIDER;
         }
@@ -166,7 +180,7 @@ class ClientController extends BaseController
     public function edit(ClientRequest $request)
     {
         $client = $request->entity();
-
+        $client->load("addresses");
         $data = [
             'client' => $client,
             'method' => 'PUT',
@@ -187,10 +201,22 @@ class ClientController extends BaseController
 
     private static function getViewModel()
     {
-        return [
+       $countries = Country::get();
+        $countriesStates = [];
+        foreach ($countries as $key => $country) {
+            $countriesStates[$country->id] = $country->states()->get(["code","name"]);
+        }
+        $accountManger = User::join("role_user","users.id","=","role_user.user_id")->join("roles","roles.id","=","role_user.role_id")->whereIn("roles.name",["STAFF","SALES_REPRESENTATIVE","MANAGEMENT","SUPER_ADMIN"])->orderBy("users.name","asc")->get(["users.id","users.name"]);
+
+       return [
             'data' => Input::old('data'),
             'account' => Auth::user()->account,
             'sizes' => Cache::get('sizes'),
+            'currencies' => Cache::get('currencies'),
+            'countriesStates' => $countriesStates,
+            
+            'timezones'=> Timezone::get(["id","name"]),
+            "accountManger" => $accountManger,
             'customLabel1' => Auth::user()->account->custom_client_label1,
             'customLabel2' => Auth::user()->account->custom_client_label2,
         ];
@@ -272,5 +298,31 @@ class ClientController extends BaseController
         ];
 
         return view('clients.statement', $data);
+    }
+
+    public function  getClientsJSON(){
+        $q = strtolower(Input::get("q"));
+        $clients = Client::lead()->where(function($query)use($q){
+            $query->whereRaw('LOWER(name) like ?', array('%' . $q. '%'))
+                ->orWhereRaw('LOWER(suffix) like ?', array('%' . $q . '%'))
+                ->orWhereRaw('LOWER(legal_business_name) like ?', array('%' . $q . '%'));
+        })->with('contacts', 'country','mainAddress','reports')->orderBy('name')->limit(100);
+        /* if (! Auth::user()->hasPermission('view_all')) {
+            $clients = $clients->where('clients.user_id', '=', Auth::user()->id);
+        } */
+        //echo $clients->toSql();
+        $clients = $clients->get();
+        foreach ($clients as $client){
+
+            $Contacts = $client->getAssociation();
+            //$_contacts = $client->contacts;
+
+            // var_dump($client->id,$client->contacts->count(),$Contacts->count());
+            $client->contactsNew = $client->contacts->merge($Contacts);
+            // $client->contacts = $client->contactsNew;
+            // var_dump($client->contactsNew->count());
+            //echo "<br>";
+        }
+       return response()->json($clients);
     }
 }

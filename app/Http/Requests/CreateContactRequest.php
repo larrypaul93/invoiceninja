@@ -26,6 +26,7 @@ class CreateContactRequest extends ContactRequest
             'last_name' => 'required',
             'email' => 'required',
             'client_id' => 'required',
+            "address.*.country" => "required"
         ];
     }
 }

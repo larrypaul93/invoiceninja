@@ -3,6 +3,7 @@
 namespace App\Models\Traits;
 
 use App\Constants\Domain;
+use Modules\Templates\Models\Templates;
 use Utils;
 use HTMLUtils;
 
@@ -24,7 +25,7 @@ trait SendsEmails
 
         return trans("texts.{$entityType}_subject", [
             'invoice' => '$invoice',
-            'account' => '$account',
+            'account' => '$account', 
             'quote' => '$quote',
             'number' => '$number',
         ]);
@@ -37,15 +38,16 @@ trait SendsEmails
      */
     public function getEmailSubject($entityType)
     {
-        if ($this->hasFeature(FEATURE_CUSTOM_EMAILS)) {
-            $field = "email_subject_{$entityType}";
-            $value = $this->account_email_settings->$field;
-
-            if ($value) {
-                $value = preg_replace("/\r\n|\r|\n/", ' ', $value);
-                return HTMLUtils::sanitizeHTML($value);
-            }
-        }
+        $field = "email_template_{$entityType}";
+        $template_id = $this->account_email_settings->$field;
+       if($template_id){
+            $template = Templates::scope()->where("id",$template_id)->first();
+            if($template)
+                return $template->subject;
+       }
+        
+        
+        
 
         return $this->getDefaultEmailSubject($entityType);
     }
@@ -62,6 +64,9 @@ trait SendsEmails
             $entityType = ENTITY_INVOICE;
         }
 
+        $template = Templates::scope()->where("is_default",1)->first();
+        return $template->content;
+
         $template = '<div>$client,</div><br>';
 
         if ($this->hasFeature(FEATURE_CUSTOM_EMAILS) && $this->email_design_id != EMAIL_DESIGN_PLAIN) {
@@ -76,9 +81,50 @@ trait SendsEmails
             $template .= "$message<p/>";
         }
 
-        return $template . '$emailSignature';
+        return $template . '$footer';
     }
 
+    public function getDefaultEmailTemplateObj($entityType)
+    {
+        if (strpos($entityType, 'reminder') !== false) {
+            $entityType = ENTITY_INVOICE;
+        }
+
+        $template = Templates::scope()->orderBy("id","asc")->first();
+        return $template;
+
+        $template = '<div>$client,</div><br>';
+
+        if ($this->hasFeature(FEATURE_CUSTOM_EMAILS) && $this->email_design_id != EMAIL_DESIGN_PLAIN) {
+            $template .= '<div>' . trans("texts.{$entityType}_message_button", ['amount' => '$amount']) . '</div><br>' .
+                         '<div style="text-align: center;">$viewButton</div><br>';
+        } else {
+            $template .= '<div>' . trans("texts.{$entityType}_message", ['amount' => '$amount']) . '</div><br>' .
+                         '<div>$viewLink</div><br>';
+        }
+
+        if ($message) {
+            $template .= "$message<p/>";
+        }
+
+        return $template . '$footer';
+    }
+
+    public function getEmailTemplateObj($entityType){
+        $template_id = false;
+        
+                $field = "email_template_{$entityType}";
+                $template_id = $this->account_email_settings->$field;
+               
+                $template = Templates::scope()->where("id",$template_id)->first();
+                
+        
+                if (!$template) {
+                   return $this->getDefaultEmailTemplateObj($entityType);
+                }
+        
+                return $template;
+    }
     /**
      * @param $entityType
      * @param bool $message
@@ -87,33 +133,46 @@ trait SendsEmails
      */
     public function getEmailTemplate($entityType, $message = false)
     {
-        $template = false;
+        $template_id = false;
 
-        if ($this->hasFeature(FEATURE_CUSTOM_EMAILS)) {
-            $field = "email_template_{$entityType}";
-            $template = $this->account_email_settings->$field;
+        $field = "email_template_{$entityType}";
+        $template_id = $this->account_email_settings->$field;
+       
+        $template = Templates::scope()->where("id",$template_id)->first();
+        
+
+        if (!$template) {
+           return $this->getDefaultEmailTemplate($entityType, $message);
         }
 
-        if (! $template) {
-            $template = $this->getDefaultEmailTemplate($entityType, $message);
-        }
-
-        $template = preg_replace("/\r\n|\r|\n/", ' ', $template);
-
-        // <br/> is causing page breaks with the email designs
-        $template = str_replace('/>', ' />', $template);
-
-        return HTMLUtils::sanitizeHTML($template);
+        return $template->content;
+        //return str_replace('/>', ' />', $template);
     }
 
+    public function getEmailTemplateById($id){
+        $template = Templates::where("id",$id)->first();
+        return $template;
+    }
+    
     /**
      * @param string $view
      *
      * @return string
      */
-    public function getTemplateView($view = '')
+    public function getTemplateView($entityType)
     {
-        return $this->getEmailDesignId() == EMAIL_DESIGN_PLAIN ? $view : 'design' . $this->getEmailDesignId();
+        $field = "email_template_{$entityType}";
+        $template_id = $this->account_email_settings->$field;
+       
+        $template = Templates::scope()->where("id",$template_id)->first();
+        
+
+        if(!$template){
+            return $this->getDefaultEmailTemplateObj($field)->view;
+        }
+
+        return $template->view;
+        //return $this->getEmailDesignId() == EMAIL_DESIGN_PLAIN ? $view : 'design' . $this->getEmailDesignId();
     }
 
     /**
@@ -129,7 +188,7 @@ trait SendsEmails
         }
     }
 
-    /**
+   /**
      * @param $reminder
      *
      * @return bool

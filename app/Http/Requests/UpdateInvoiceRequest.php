@@ -13,7 +13,7 @@ class UpdateInvoiceRequest extends InvoiceRequest
      */
     public function authorize()
     {
-        return $this->entity() && $this->user()->can('edit', $this->entity());
+        return $this->entity() && ($this->user()->can('edit', $this->entity()) || $this->entity()->taggedUser());
     }
 
     /**

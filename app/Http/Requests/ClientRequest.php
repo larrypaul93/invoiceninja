@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Requests;
+use App\Libraries\HistoryUtils;
 
 class ClientRequest extends EntityRequest
 {
@@ -16,5 +17,18 @@ class ClientRequest extends EntityRequest
         }
          
         return $client;
+    }
+
+    public function authorize()
+    {
+        if ($this->entity()) {
+            if ($this->user()->can('view', $this->entity()) || true) {
+                HistoryUtils::trackViewed($this->entity());
+
+                return true;
+            }
+        } else {
+            return $this->user()->can('create', $this->entityType);
+        }
     }
 }

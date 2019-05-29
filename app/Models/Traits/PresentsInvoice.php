@@ -7,7 +7,8 @@ namespace App\Models\Traits;
  */
 trait PresentsInvoice
 {
-    public function getInvoiceFields()
+   
+        public function getInvoiceFields()
     {
         if ($this->invoice_fields) {
             $fields = json_decode($this->invoice_fields, true);
@@ -39,6 +40,7 @@ trait PresentsInvoice
         } else {
             return $this->getDefaultInvoiceFields();
         }
+    
     }
 
     public function getDefaultInvoiceFields()
@@ -108,20 +110,22 @@ trait PresentsInvoice
         if ($this->custom_client_label1) {
             $fields[INVOICE_FIELDS_CLIENT][] = 'client.custom_value1';
         }
+
         if ($this->custom_client_label2) {
             $fields[INVOICE_FIELDS_CLIENT][] = 'client.custom_value2';
-        }
-        if ($this->custom_contact_label1) {
-            $fields[INVOICE_FIELDS_CLIENT][] = 'contact.custom_value1';
-        }
-        if ($this->custom_contact_label2) {
-            $fields[INVOICE_FIELDS_CLIENT][] = 'contact.custom_value2';
         }
         if ($this->custom_label1) {
             $fields['account_fields2'][] = 'account.custom_value1';
         }
         if ($this->custom_label2) {
             $fields['account_fields2'][] = 'account.custom_value2';
+        }
+
+        if ($this->custom_contact_label1) {
+            $fields[INVOICE_FIELDS_CLIENT][] = 'contact.custom_value1';
+        }
+        if ($this->custom_contact_label2) {
+            $fields[INVOICE_FIELDS_CLIENT][] = 'contact.custom_value2';
         }
 
         return $this->applyLabels($fields);
@@ -310,6 +314,7 @@ trait PresentsInvoice
             'surcharge',
             'tax_invoice',
             'tax_quote',
+            'invoice_total',
             'statement',
             'statement_date',
             'your_statement',
@@ -322,7 +327,6 @@ trait PresentsInvoice
             'credit_to',
             'your_credit',
             'work_phone',
-            'invoice_total',
             'outstanding',
             'invoice_due_date',
             'quote_due_date',

@@ -25,6 +25,7 @@ class UpdateContactRequest extends ContactRequest
             'first_name' => 'required',
             'last_name' => 'required',
             'email' => 'required',
+            "address.*.country" => "required"
         ];
     }
 }

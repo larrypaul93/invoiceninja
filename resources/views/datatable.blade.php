@@ -42,12 +42,12 @@
         });
     @endif
 
-    function refreshDatatable{{ isset($values['entityType']) ? '_' . $values['entityType'] : '' }}() {
-        window['dataTable{{ isset($values['entityType']) ? '_' . $values['entityType'] : '' }}'].api().ajax.reload();
+    function refreshDatatable() {
+        window.dataTable.api().ajax.reload();
     }
 
     function load_{{ $class }}() {
-        window['dataTable{{ isset($values['entityType']) ? '_' . $values['entityType'] : '' }}'] = jQuery('.{{ $class }}').dataTable({
+        window.dataTable = jQuery('.{{ $class }}').dataTable({
             "stateSave": true,
             "stateDuration": 0,
             "fnRowCallback": function(row, data) {
@@ -93,9 +93,11 @@
             },
             "stateLoadParams": function (settings, data) {
                 // don't save filter to local storage
-                data.search.search = "";
+               // data.search.search = "";
+               $(settings.nTable).prev().prev().find("input").val(data.search.search);
+               
                 // always start on first page of results
-                data.start = 0;
+               // data.start = 0;
             }
         });
     }

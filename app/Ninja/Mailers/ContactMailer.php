@@ -7,7 +7,9 @@ use App\Events\QuoteWasEmailed;
 use App\Models\Invitation;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\ClientPortalEmail;
 use App\Services\TemplateService;
+use Modules\Templates\Models\Templates;
 use Event;
 use Utils;
 
@@ -56,18 +58,46 @@ class ContactMailer extends Mailer
         }
 
         $account->loadLocalizationSettings($client);
-        $emailTemplate = !empty($template['body']) ? $template['body'] : $account->getEmailTemplate($reminder ?: $entityType);
-        $emailSubject = !empty($template['subject']) ? $template['subject'] : $account->getEmailSubject($reminder ?: $entityType);
+        if(empty($template['body'])){
+            if($reminder && !is_numeric($reminder)){
+               $emailTemplate =  $account->getEmailTemplate($reminder ?: $entityType);
+
+            }
+            elseif($reminder) {
+                $_template = $account->getEmailTemplateById($reminder);
+                 $emailTemplate = $_template->content;
+
+            }
+        }
+        else
+            $emailTemplate = $template['body'];
+            
+        if(empty($template['subject'])){
+            if($reminder && !is_numeric($reminder)){
+               $emailSubject =  $account->getEmailSubject($reminder ?: $entityType);
+
+            }
+            elseif($reminder) {
+                $_template = $account->getEmailTemplateById($reminder);
+                 $emailSubject = $_template->subject;
+                 
+            }
+        }
+        else 
+            $emailSubject =  $template['subject'];
+        //$emailTemplate = !empty($template['body']) ? $template['body'] : $account->getEmailTemplate($reminder ?: $entityType);
+        //$emailSubject = !empty($template['subject']) ? $template['subject'] : $account->getEmailSubject($reminder ?: $entityType);
 
         $sent = false;
         $pdfString = false;
 
-        if ($account->attachPDF()) {
+        if ($invoice->attach_pdf != 0) {
             $pdfString = $invoice->getPDFString();
         }
 
         $documentStrings = [];
         if ($account->document_email_attachment && $invoice->hasDocuments()) {
+            
             $documents = $invoice->allDocuments();
             $documents = $documents->sortBy('size');
 
@@ -135,7 +165,7 @@ class ContactMailer extends Mailer
         $account = $invoice->account;
         $user = $invitation->user;
 
-        if ($user->trashed()) {
+        if ($invitation->user->trashed()) {
             $user = $account->users()->orderBy('id')->first();
         }
 
@@ -167,7 +197,14 @@ class ContactMailer extends Mailer
             $invitation->contact->password = bcrypt($password);
             $invitation->contact->save();
         }
+        //$_template = Templates::where("id",$reminder)->first();
+        //if($_template) $reminder = $_template->name;
+        $_template = false;
+        if($reminder && is_numeric($reminder)){
+            $_template = $account->getEmailTemplateById($reminder);
+            $reminder = $_template->name;
 
+        }
         $data = [
             'body' => $this->templateService->processVariables($body, $variables),
             'link' => $invitation->getLink(),
@@ -180,17 +217,19 @@ class ContactMailer extends Mailer
             'documents' => $documentStrings,
             'notes' => $reminder,
             'bccEmail' => $isFirst ? $account->getBccEmail() : false,
+            'ccEmail'  => !empty($invoice->cc_email)?explode(",",$invoice->cc_email):false,
             'fromEmail' => $account->getFromEmail(),
         ];
 
-        if ($account->attachPDF()) {
+        if ($invoice->attach_pdf != 0) {
             $data['pdfString'] = $pdfString;
             $data['pdfFileName'] = $invoice->getFileName();
         }
 
         $subject = $this->templateService->processVariables($subject, $variables);
         $fromEmail = $account->getReplyToEmail() ?: $user->email;
-        $view = $account->getTemplateView(ENTITY_INVOICE);
+        if($_template) $view = $_template->view;
+        else $view = $account->getTemplateView($reminder);
 
         $response = $this->sendTo($invitation->contact->email, $fromEmail, $account->getDisplayName(), $subject, $view, $data);
 
@@ -201,6 +240,133 @@ class ContactMailer extends Mailer
         }
     }
 
+
+    public function sendClientInvoiceEmail($contact,$invoice,$options){
+        
+        $random = md5(uniqid());
+        ClientPortalEmail::create([
+            "type" => $options['type'],
+            "email_key" => $random,
+            "contact_id" => $contact->id,
+            "entity_id" => $invoice->id,
+            
+        ]);
+        
+        $variables = [
+            
+            '$message'=> $options['message'],
+            '$receiverName'=>$options['name'],
+            '$senderName'=>$contact->getDisplayName(),
+            '$viewLink' => url($options['type']."/".$random."/view")
+        ];
+        $_data = [
+            'account' => $contact->account,
+            'client' => $contact->client,
+            'amount' => $invoice->getRequestedAmount(),
+            'contact' => $contact,
+            'invoice'   =>$invoice
+        ] ;
+
+        
+        //$_template = Templates::where("id",$reminder)->first();
+        //if($_template) $reminder = $_template->name;
+        $_template = false;
+        
+        $_template = $contact->account->getEmailTemplateObj("client_".$options['template']);
+        $reminder = $_template->name;
+
+        $data = [
+            'body' => $this->templateService->processClientInvoiceVariables($_template->content, $_data,$variables),
+            'link' => url($options['type']."/".$random."/view"),
+            'entityType' => $invoice->getEntityType(),
+            'invoiceId' => $invoice->id,
+            'account' => $contact->account,
+            'client' => $contact->client,
+            'invoice' => $invoice,
+            'notes' => $reminder,
+            'fromEmail' => $contact->email,
+        ];
+
+        
+
+        $subject = $this->templateService->processClientInvoiceVariables($_template->subject, $_data,$variables);
+        $fromEmail = $contact->email;
+        $view = $_template->view;
+        
+
+        $response = $this->sendTo($options['email'], $fromEmail, $contact->account->getDisplayName(), $subject, $view, $data);
+
+        if ($response === true) {
+            return true;
+        } else {
+            return $response;
+        }
+    }
+
+
+    public function sendClientReportEmail($contact,$options){
+        
+        $random = md5(uniqid());
+        ClientPortalEmail::create([
+            "type" => $options['type'],
+            "email_key" => $random,
+            "contact_id" => $contact->id,
+            "entity_id" => $options['id'],
+            "data" => $options['id'],
+            
+        ]);
+        
+        $variables = [
+            
+            '$message'=> $options['message'],
+            '$receiverName'=>$options['name'],
+            '$senderName'=>$contact->getDisplayName(),
+            '$viewLink' => url($options['type']."/".$random."/view")
+        ];
+        $_data = [
+            'account' => $contact->account,
+            'client' => $contact->client,
+            'amount' => 0,
+            'contact' => $contact,
+            'message' => $options['message'],
+            'invoice' => new Invoice()
+           
+        ] ;
+
+        
+        //$_template = Templates::where("id",$reminder)->first();
+        //if($_template) $reminder = $_template->name;
+        $_template = false;
+        
+        $_template = $contact->account->getEmailTemplateObj("client_".$options['template']);
+        $reminder = $_template->name;
+
+        $data = [
+            'body' => $this->templateService->processClientVariables($_template->content, $_data,$variables),
+            'link' => url($options['type']."/".$random."/view"),
+            'entityType' => "report",
+            //'invoiceId' => $invoice->id,
+            'account' => $contact->account,
+            'client' => $contact->client,
+            'notes' => $reminder,
+            'fromEmail' => $contact->email,
+        ];
+
+        
+
+        $subject = $this->templateService->processClientVariables($_template->subject, $_data,$variables);
+        $fromEmail = $contact->email;
+        $view = $_template->view;
+        
+
+        $response = $this->sendTo($options['email'], $fromEmail, $contact->account->getDisplayName(), $subject, $view, $data);
+
+        if ($response === true) {
+            return true;
+        } else {
+            return $response;
+        }
+    }
     /**
      * @param int $length
      *
@@ -231,14 +397,17 @@ class ContactMailer extends Mailer
     /**
      * @param Payment $payment
      */
-    public function sendPaymentConfirmation(Payment $payment, $refunded = 0)
+     public function sendPaymentConfirmation(Payment $payment, $refunded = 0)
     {
         $account = $payment->account;
         $client = $payment->client;
 
         $account->loadLocalizationSettings($client);
+
         $invoice = $payment->invoice;
         $accountName = $account->getDisplayName();
+        $emailTemplate = $account->getEmailTemplate(ENTITY_PAYMENT);
+        $emailSubject = $invoice->account->getEmailSubject(ENTITY_PAYMENT);
 
         if ($refunded > 0) {
             $emailSubject = trans('texts.refund_subject');
@@ -257,8 +426,9 @@ class ContactMailer extends Mailer
             $invitation = $payment->invitation;
         } else {
             $user = $payment->user;
-            $contact = count($client->contacts) ? $client->contacts[0] : '';
             $invitation = $payment->invoice->invitations[0];
+            $contact = $invitation->contact;
+            
         }
 
         $variables = [
@@ -277,14 +447,15 @@ class ContactMailer extends Mailer
             'payment' => $payment,
             'entityType' => ENTITY_INVOICE,
             'bccEmail' => $account->getBccEmail(),
+            'ccEmail'  => !empty($invoice->cc_email)?explode(",",$invoice->cc_email):false,
             'fromEmail' => $account->getFromEmail(),
             'isRefund' => $refunded > 0,
         ];
 
-        if (! $refunded && $account->attachPDF()) {
+        /*if ($account->attachPDF()) {
             $data['pdfString'] = $invoice->getPDFString();
             $data['pdfFileName'] = $invoice->getFileName();
-        }
+        }*/
 
         $subject = $this->templateService->processVariables($emailSubject, $variables);
         $data['invoice_id'] = $payment->invoice->id;
@@ -292,7 +463,7 @@ class ContactMailer extends Mailer
         $view = $account->getTemplateView('payment_confirmation');
         $fromEmail = $account->getReplyToEmail() ?: $user->email;
 
-        if ($user->email && $contact->email) {
+        if ($contact->email) {
             $this->sendTo($contact->email, $fromEmail, $accountName, $subject, $view, $data);
         }
 

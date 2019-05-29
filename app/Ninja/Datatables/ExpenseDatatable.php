@@ -31,6 +31,12 @@ class ExpenseDatatable extends EntityDatatable
                 ! $this->hideClient,
             ],
             [
+                "invoice_number",
+                function($model){
+                    return $model->invoice_number;
+                }
+            ],
+            [
                 'client_name',
                 function ($model) {
                     if ($model->client_public_id) {
@@ -48,12 +54,11 @@ class ExpenseDatatable extends EntityDatatable
             [
                 'expense_date',
                 function ($model) {
-                    if (! Auth::user()->can('viewByOwner', [ENTITY_EXPENSE, $model->user_id])) {
+                    if (! Auth::user()->can('viewByOwner', [ENTITY_EXPENSE, $model->user_id]) && !self::isInTags(Auth::user()->id, $model->tags)) {
                         return Utils::fromSqlDate($model->expense_date_sql);
                     }
 
-                    $str = link_to("expenses/{$model->public_id}/edit", Utils::fromSqlDate($model->expense_date_sql))->toHtml();
-                    return $this->addNote($str, $model->private_notes);
+                    return link_to("expenses/{$model->public_id}/edit", Utils::fromSqlDate($model->expense_date_sql))->toHtml();
                 },
             ],
             [
@@ -106,7 +111,7 @@ class ExpenseDatatable extends EntityDatatable
                     return URL::to("expenses/{$model->public_id}/edit");
                 },
                 function ($model) {
-                    return Auth::user()->can('editByOwner', [ENTITY_EXPENSE, $model->user_id]);
+                    return (Auth::user()->can('editByOwner', [ENTITY_EXPENSE, $model->user_id]) || self::isInTags(Auth::user()->id, $model->tags));
                 },
             ],
             [
@@ -124,7 +129,7 @@ class ExpenseDatatable extends EntityDatatable
                     return URL::to("/invoices/{$model->invoice_public_id}/edit");
                 },
                 function ($model) {
-                    return $model->invoice_public_id && Auth::user()->can('editByOwner', [ENTITY_INVOICE, $model->invoice_user_id]);
+                    return $model->invoice_public_id && Auth::user()->can('editByOwner', [ENTITY_INVOICE, $model->invoice_user_id]) || self::isInTags(Auth::user()->id, $model->tags);
                 },
             ],
             [

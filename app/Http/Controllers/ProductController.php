@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Client;
 use App\Models\Product;
 use App\Models\TaxRate;
 use App\Ninja\Datatables\ProductDatatable;
@@ -9,6 +10,8 @@ use App\Ninja\Repositories\ProductRepository;
 use App\Services\ProductService;
 use Auth;
 use Input;
+use Modules\Category\Models\Category;
+use Modules\Suppliers\Models\Suppliers;
 use Redirect;
 use Session;
 use URL;
@@ -83,8 +86,11 @@ class ProductController extends BaseController
 
         $data = [
           'account' => $account,
+          'categories' => Category::scope()->where("parent",0)->get(['id','name']),
           'taxRates' => $account->invoice_item_taxes ? TaxRate::scope()->whereIsInclusive(false)->get() : null,
           'product' => $product,
+          'subCats'=>Category::scope()->where("parent",$product->category_id)->get(['id','name']),
+          'suppliers'=>Suppliers::scope()->orderBy("name","asc")->get(['id','name']),
           'entity' => $product,
           'method' => 'PUT',
           'url' => 'products/'.$publicId,
@@ -103,8 +109,11 @@ class ProductController extends BaseController
 
         $data = [
           'account' => $account,
-          'taxRates' => $account->invoice_item_taxes ? TaxRate::scope()->whereIsInclusive(false)->get(['id', 'name', 'rate']) : null,
+          'categories' => Category::scope()->where("parent",0)->get(['id','name']),
+          'taxRates' => $account->invoice_item_taxes ? TaxRate::scope()->whereIsInclusive(false)->get() : null,
           'product' => null,
+          'suppliers'=> Suppliers::scope()->orderBy("name","asc")->get(['id','name']),
+          'subCats'=>[],
           'method' => 'POST',
           'url' => 'products',
           'title' => trans('texts.create_product'),
@@ -121,6 +130,26 @@ class ProductController extends BaseController
         return $this->save();
     }
 
+    public function duplicate($publicId){
+        $account = Auth::user()->account;
+        $product = Product::scope($publicId)->withTrashed()->firstOrFail();
+        $product->id = $product->public_id = null;
+        $product->sku = null;
+        $data = [
+          'account' => $account,
+          'categories' => Category::scope()->where("parent",0)->get(['id','name']),
+          'taxRates' => $account->invoice_item_taxes ? TaxRate::scope()->whereIsInclusive(false)->get(['id', 'name', 'rate']) : null,
+          'product' => $product,
+          'subCats'=>Category::scope()->where("parent",$product->category_id)->get(['id','name']),
+          'suppliers'=>Suppliers::scope()->orderBy("name","asc")->get(['id','name']),
+          'entity' => $product,
+          'method' => 'POST',
+          'url' => 'products',
+          'title' => trans('texts.edit_product'),
+        ];
+
+        return View::make('accounts.product', $data);
+    }
     /**
      * @param $publicId
      *
@@ -163,7 +192,6 @@ class ProductController extends BaseController
     {
         $action = Input::get('action');
         $ids = Input::get('public_id') ? Input::get('public_id') : Input::get('ids');
-
         if ($action == 'invoice') {
             $products = Product::scope($ids)->get();
             $data = [];

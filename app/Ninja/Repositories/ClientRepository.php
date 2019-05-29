@@ -6,6 +6,7 @@ use App\Events\ClientWasCreated;
 use App\Events\ClientWasUpdated;
 use App\Models\Client;
 use App\Models\Contact;
+use App\Models\Address;
 use Auth;
 use Cache;
 use DB;
@@ -29,42 +30,53 @@ class ClientRepository extends BaseRepository
     public function find($filter = null, $userId = false)
     {
         $query = DB::table('clients')
-                    ->join('accounts', 'accounts.id', '=', 'clients.account_id')
-                    ->join('contacts', 'contacts.client_id', '=', 'clients.id')
-                    ->where('clients.account_id', '=', \Auth::user()->account_id)
-                    ->where('contacts.is_primary', '=', true)
-                    ->where('contacts.deleted_at', '=', null)
+                    ->leftJoin("addresses",function ($join) {
+                        $join->on('clients.id', '=', 'addresses.entity_id')
+                            ->where('addresses.type', '=', 'Main')
+                            ->where('addresses.address_type','=','account');
+                    })
+                  //  ->leftJoin("states",'addresses.state','=','states.id')
+                    //->where('clients.type', '=', 'Client')
+                    ->where(function($query){
+                        $query->where('clients.type', '=', 'Client')
+                        ->orWhere('clients.type', '=', 'Partner')
+                        ->orWhere('clients.type', '=', 'Management');
+                    })
                     //->whereRaw('(clients.name != "" or contacts.first_name != "" or contacts.last_name != "" or contacts.email != "")') // filter out buy now invoices
                     ->select(
-                        DB::raw('COALESCE(clients.currency_id, accounts.currency_id) currency_id'),
-                        DB::raw('COALESCE(clients.country_id, accounts.country_id) country_id'),
-                        DB::raw("CONCAT(contacts.first_name, ' ', contacts.last_name) contact"),
+                        DB::raw('COALESCE(clients.currency_id) currency_id'),
+                        DB::raw('COALESCE(clients.country_id) country_id'),
+                        DB::raw('(select sum(balance) from invoices where invoice_status_id > 1 AND invoice_type_id = 1 AND invoices.client_id = clients.id and account_id = '.Auth::user()->account_id .') as balance'),
                         'clients.public_id',
-                        'clients.name',
-                        'clients.private_notes',
-                        'contacts.first_name',
-                        'contacts.last_name',
-                        'clients.balance',
+                        'clients.id',
+                        'clients.name as account',
+                        'clients.suffix',
+                       // 'clients.balance',
                         'clients.last_login',
                         'clients.created_at',
                         'clients.created_at as client_created_at',
                         'clients.work_phone',
-                        'contacts.email',
                         'clients.deleted_at',
                         'clients.is_deleted',
                         'clients.user_id',
-                        'clients.id_number'
-                    );
+                        'clients.id_number',
+                        'addresses.address_1 as address',
+                        'addresses.city',
+                        'addresses.zip',
+                        'addresses.state'
+                    )->distinct();
 
         $this->applyFilters($query, ENTITY_CLIENT);
 
         if ($filter) {
             $query->where(function ($query) use ($filter) {
                 $query->where('clients.name', 'like', '%'.$filter.'%')
-                      ->orWhere('clients.id_number', 'like', '%'.$filter.'%')
-                      ->orWhere('contacts.first_name', 'like', '%'.$filter.'%')
-                      ->orWhere('contacts.last_name', 'like', '%'.$filter.'%')
-                      ->orWhere('contacts.email', 'like', '%'.$filter.'%');
+                      ->orWhere('clients.suffix', 'like', '%'.$filter.'%')
+                      ->orWhere('clients.id_number', '=', $filter)
+                      ->orWhere('addresses.address_1', 'like', '%'.$filter.'%')
+                      ->orWhere('addresses.city', 'like', '%'.$filter.'%')
+                      ->orWhere('addresses.zip', 'like', '%'.$filter.'%')
+                      ->orWhere('addresses.state', 'like', '%'.$filter.'%');
             });
         }
 
@@ -107,33 +119,37 @@ class ClientRepository extends BaseRepository
             }
         }
 
-        // convert country code to id
-        if (isset($data['country_code'])) {
-            $countryCode = strtolower($data['country_code']);
-            $country = Cache::get('countries')->filter(function ($item) use ($countryCode) {
-                return strtolower($item->iso_3166_2) == $countryCode || strtolower($item->iso_3166_3) == $countryCode;
-            })->first();
-            if ($country) {
-                $data['country_id'] = $country->id;
-            }
-        }
-
-        // set default payment terms
-        if (auth()->check() && ! isset($data['payment_terms'])) {
-            $data['payment_terms'] = auth()->user()->account->payment_terms;
-        }
-
         $client->fill($data);
         $client->save();
 
-        /*
+        
+        
+        if(isset($data['address'])){
+            $addresses = $data['address'];
+            foreach ($addresses as $key => $_address) {
+                if($_address['id']){
+                    $address = Address::where("id",$_address['id'])->first();
+                    $address->fill($_address);
+                    
+                    $address->save();
+                }
+                else {
+                   $address =  Address::create(["entity_id"=>$client->id,"address_type"=>"account"]);
+                   $address->fill($_address);
+                   //$address->address_type = "account";
+                   //$address->entity_id = $client->id;
+                   $address->save();
+                }
+                
+            }
+        }
+        
         if ( ! isset($data['contact']) && ! isset($data['contacts'])) {
             return $client;
         }
-        */
-
+        
         $first = true;
-        $contacts = isset($data['contact']) ? [$data['contact']] : (isset($data['contacts']) ? $data['contacts'] : [[]]);
+        $contacts = isset($data['contact']) ? [$data['contact']] : $data['contacts'];
         $contactIds = [];
 
         // If the primary is set ensure it's listed first
@@ -168,6 +184,7 @@ class ClientRepository extends BaseRepository
         return $client;
     }
 
+    
     public function findPhonetically($clientName)
     {
         $clientNameMeta = metaphone($clientName);
@@ -210,4 +227,6 @@ class ClientRepository extends BaseRepository
 
         return ($clientId && isset($map[$clientId])) ? $map[$clientId] : null;
     }
+
+   
 }

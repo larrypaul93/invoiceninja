@@ -51,17 +51,13 @@
           }
       }
 
-      if (inIframe()) {
-          $('#footer').hide();
-      } else {
-          positionFooter();
-          $(window).resize(positionFooter);
-      }
+      positionFooter();
+      $(window).resize(positionFooter);
   })
 
 </script>
 
-
+@if(!isset($is_guest))
 <div id="header">
     <nav class="navbar navbar-top navbar-inverse">
         <div class="container">
@@ -86,11 +82,6 @@
                             {!! link_to('/client/dashboard', trans('texts.dashboard') ) !!}
                         </li>
                     @endif
-                    @if (request()->contact && request()->contact->client->show_tasks_in_portal)
-                        <li {!! Request::is('*client/tasks') ? 'class="active"' : '' !!}>
-                            {!! link_to('/client/tasks', trans('texts.tasks') ) !!}
-                        </li>
-                    @endif
                     @if (isset($hasQuotes) && $hasQuotes)
                         <li {!! Request::is('*client/quotes') ? 'class="active"' : '' !!}>
                             {!! link_to('/client/quotes', trans('texts.quotes') ) !!}
@@ -106,7 +97,10 @@
                             {!! link_to('/client/documents', trans('texts.documents') ) !!}
                         </li>
                     @endif
-                    @if (isset($hasPaymentMethods) && $hasPaymentMethods)
+                     <li {!! Request::is('*client/reports') ? 'class="active"' : '' !!}>
+                            {!! link_to('/client/reports', 'Services Reports' ) !!}
+                        </li>
+                    @if (isset($account) && $account->getTokenGatewayId() && !$account->enable_client_portal_dashboard)
                         <li {!! Request::is('*client/payment_methods') ? 'class="active"' : '' !!}>
                             {!! link_to('/client/payment_methods', trans('texts.payment_methods') ) !!}
                         </li>
@@ -142,7 +136,9 @@
       @endif
   </div>
 </div>
-
+@else
+<p>&nbsp;</p>
+@endif;
 <div id="mainContent">
     @yield('content')
 </div>

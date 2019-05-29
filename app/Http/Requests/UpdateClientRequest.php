@@ -25,7 +25,10 @@ class UpdateClientRequest extends ClientRequest
             return [];
         }
 
-        $rules = [];
+        $rules = [
+            "address.*.country" => "required",
+            "timezone_id" => "required"
+        ];
 
         if ($this->user()->account->client_number_counter) {
             $rules['id_number'] = 'unique:clients,id_number,'.$this->entity()->id.',id,account_id,' . $this->user()->account_id;

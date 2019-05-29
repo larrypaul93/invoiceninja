@@ -96,7 +96,7 @@ class Utils
 
     public static function requireHTTPS()
     {
-        if (Request::root() === 'http://ninja.dev' || Request::root() === 'http://ninja.dev:8000') {
+        if (in_array(Request::root(), ['http://ninja.dev', 'http://ninja.dev:8000', 'http://www.ninja.test'])) {
             return false;
         }
 
@@ -851,13 +851,19 @@ class Utils
 
     public static function getClientDisplayName($model)
     {
+        $client_name = "";
         if ($model->client_name) {
-            return $model->client_name;
+            $client_name = $model->client_name;
         } elseif ($model->first_name || $model->last_name) {
-            return $model->first_name.' '.$model->last_name;
+            $client_name = $model->first_name.' '.$model->last_name;
         } else {
-            return $model->email ?: '';
+            $client_name = $model->email ?: '';
         }
+
+        if(isset($model->suffix) && !empty($model->suffix)){
+            $client_name .= " (".$model->suffix.")";
+        }
+        return $client_name;
     }
 
     public static function getVendorDisplayName($model)

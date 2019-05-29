@@ -4,6 +4,8 @@ namespace App\Ninja\Presenters;
 
 use App\Libraries\Skype\InvoiceCard;
 use App\Models\Activity;
+use App\Models\Invoice;
+use App\Models\Payment;
 use Carbon;
 use DropdownButton;
 use stdClass;
@@ -45,7 +47,7 @@ class InvoicePresenter extends EntityPresenter
 
         return $account->formatMoney($invoice->partial, $invoice->client);
     }
-
+    
     public function requestedAmount()
     {
         $invoice = $this->entity;
@@ -157,6 +159,9 @@ class InvoicePresenter extends EntityPresenter
     {
         return Utils::fromSqlDate($this->entity->due_date);
     }
+    public function is_over_due(){
+        return Invoice::calcIsOverdue($this->entity->balance,$this->entity->due_date);
+    }
 
     public function partial_due_date()
     {
@@ -234,20 +239,10 @@ class InvoicePresenter extends EntityPresenter
         $entityType = $invoice->getEntityType();
 
         $actions = [
-            ['url' => 'javascript:onCloneInvoiceClick()', 'label' => trans("texts.clone_invoice")]
+            ['url' => 'javascript:onCloneClick()', 'label' => trans("texts.clone_{$entityType}")],
+            ['url' => url("{$entityType}s/{$entityType}_history/{$invoice->public_id}"), 'label' => trans('texts.view_history')],
+            DropdownButton::DIVIDER,
         ];
-
-        if (Auth::user()->can('create', ENTITY_QUOTE)) {
-            $actions[] = ['url' => 'javascript:onCloneQuoteClick()', 'label' => trans("texts.clone_quote")];
-        }
-
-        $actions[] = ['url' => url("{$entityType}s/{$entityType}_history/{$invoice->public_id}"), 'label' => trans('texts.view_history')];
-
-        if ($entityType == ENTITY_INVOICE) {
-            $actions[] = ['url' => url("invoices/delivery_note/{$invoice->public_id}"), 'label' => trans('texts.delivery_note')];
-        }
-
-        $actions[] = DropdownButton::DIVIDER;
 
         if ($entityType == ENTITY_QUOTE) {
             if ($invoice->quote_invoice_id) {
@@ -259,15 +254,27 @@ class InvoicePresenter extends EntityPresenter
             if ($invoice->quote_id && $invoice->quote) {
                 $actions[] = ['url' => url("quotes/{$invoice->quote->public_id}/edit"), 'label' => trans('texts.view_quote')];
             }
-
+            
             if ($invoice->onlyHasTasks()) {
                 $actions[] = ['url' => 'javascript:onAddItemClick()', 'label' => trans('texts.add_product')];
             }
 
-            if ($invoice->canBePaid()) {
-                $actions[] = ['url' => 'javascript:submitBulkAction("markPaid")', 'label' => trans('texts.mark_paid')];
+            if (!$invoice->deleted_at && ! $invoice->is_recurring && $invoice->balance != 0) {
+               // $actions[] = ['url' => 'javascript:submitBulkAction("markPaid")', 'label' => trans('texts.mark_paid')];
+               if(count($invoice->invitations)){
+                $actions[] = ['url' => url("online-payment/".$invoice->invitations[0]->invitation_key."/credit_card"), 'label' => trans('texts.online_payment')];
+                 $actions[] = ['url' => url("pre-auth/".$invoice->invitations[0]->invitation_key."/credit_card"), 'label' => trans('texts.pre_auth_payment')];
+               }
+                 $payment = Payment::where("invoice_id",$invoice->id)->where("payment_status_id",PAYMENT_STATUS_PRE_AUTH)->first();
+                if($payment && $invoice->invoice_status_id == INVOICE_STATUS_PRE_AUTH)
+                    $actions[] = ['url' => url("pre-completion/".$payment->public_id), 'label' => trans('texts.pre_auth_completion')];
                 $actions[] = ['url' => 'javascript:onPaymentClick()', 'label' => trans('texts.enter_payment')];
+                $actions[] = ['url' => "javascript:voidInvoice({$invoice->public_id})", 'label' => trans('texts.void_invoice')];
             }
+
+            
+            
+
 
             foreach ($invoice->payments as $payment) {
                 $label = trans('texts.view_payment');
@@ -283,10 +290,10 @@ class InvoicePresenter extends EntityPresenter
         }
 
         if (! $invoice->trashed()) {
-            $actions[] = ['url' => 'javascript:onArchiveClick()', 'label' => trans("texts.archive_{$entityType}")];
+          //  $actions[] = ['url' => 'javascript:onArchiveClick()', 'label' => trans("texts.archive_{$entityType}")];
         }
         if (! $invoice->is_deleted) {
-            $actions[] = ['url' => 'javascript:onDeleteClick()', 'label' => trans("texts.delete_{$entityType}")];
+           // $actions[] = ['url' => 'javascript:onDeleteClick()', 'label' => trans("texts.delete_{$entityType}")];
         }
 
         return $actions;
@@ -316,11 +323,7 @@ class InvoicePresenter extends EntityPresenter
             $label = trans('texts.fee');
         }
 
-        $label = ' - ' . $fee . ' ' . $label;
-
-        $label .= '&nbsp;&nbsp; <i class="fa fa-info-circle" data-toggle="tooltip" data-placement="bottom" title="' . trans('texts.fee_help') . '"></i>';
-
-        return $label;
+        return ' - ' . $fee . ' ' . $label;
     }
 
     public function multiAccountLink()

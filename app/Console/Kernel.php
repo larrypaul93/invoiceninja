@@ -5,7 +5,7 @@ namespace App\Console;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Utils;
-
+use App\Console\Commands\SendLaterInvoice;
 class Kernel extends ConsoleKernel
 {
     /**
@@ -27,6 +27,7 @@ class Kernel extends ConsoleKernel
         'App\Console\Commands\TestOFX',
         'App\Console\Commands\MakeModule',
         'App\Console\Commands\MakeClass',
+        'App\Console\Commands\SendLaterInvoice',
         'App\Console\Commands\InitLookup',
         'App\Console\Commands\CalculatePayouts',
         'App\Console\Commands\UpdateKey',
@@ -65,5 +66,9 @@ class Kernel extends ConsoleKernel
             ->command('updater:check-for-update --prefixVersionWith=v')
             ->sendOutputTo($logFile)
             ->daily();
+        $schedule
+            ->command('sendlatter:invoice')
+            ->sendOutputTo($logFile)
+            ->everyFiveMinutes();    
     }
 }

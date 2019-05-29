@@ -29,12 +29,13 @@ class InvoiceReport extends AbstractReport
                         ->orderBy('name')
                         ->withArchived()
                         ->with('contacts')
-                        ->with(['invoices' => function ($query) use ($statusIds) {
+                        ->with(['invoices' => function ($query) use ($statusIds,$account) {
                             $query->invoices()
                                   ->withArchived()
                                   ->statusIds($statusIds)
                                   ->where('invoice_date', '>=', $this->startDate)
                                   ->where('invoice_date', '<=', $this->endDate)
+                                  ->where('account_id', '=', $account->id)
                                   ->with(['payments' => function ($query) {
                                       $query->withArchived()
                                               ->excludeFailed()

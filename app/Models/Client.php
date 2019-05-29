@@ -7,7 +7,7 @@ use DB;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laracasts\Presenter\PresentableTrait;
 use Utils;
-
+use Auth;
 /**
  * Class Client.
  */
@@ -16,6 +16,7 @@ class Client extends EntityModel
     use PresentableTrait;
     use SoftDeletes;
 
+//protected $table = "accounts";
     /**
      * @var string
      */
@@ -51,7 +52,26 @@ class Client extends EntityModel
         'website',
         'invoice_number_counter',
         'quote_number_counter',
+        'suffix',
+        'legal_business_name',
+        'user_id',
+        'type',
+        'region',
+        'status',
+        'work_phone',
+        'phone_home',
+        'phone_main',
+        'phone_fax',
+        'phone_toll_free',
+        'phone_cell',
+        'email',
+        'keywords',
+        'personal',
+        'site_image',
+        'timezone_id',
+        'payment_type',
         'public_notes',
+        'is_supplier',
         'task_rate',
         'shipping_address1',
         'shipping_address2',
@@ -61,36 +81,133 @@ class Client extends EntityModel
         'shipping_country_id',
         'show_tasks_in_portal',
         'send_reminders',
+
     ];
 
+    /**
+     * @var string
+     */
+    public static $fieldName = 'name';
+    /**
+     * @var string
+     */
+    public static $fieldPhone = 'work_phone';
+    /**
+     * @var string
+     */
+    public static $fieldAddress1 = 'address1';
+    /**
+     * @var string
+     */
+    public static $fieldAddress2 = 'address2';
+    /**
+     * @var string
+     */
+    public static $fieldCity = 'city';
+    /**
+     * @var string
+     */
+    public static $fieldState = 'state';
+    /**
+     * @var string
+     */
+    public static $fieldPostalCode = 'postal_code';
+    /**
+     * @var string
+     */
+    public static $fieldNotes = 'notes';
+    /**
+     * @var string
+     */
+    public static $fieldCountry = 'country';
+    /**
+     * @var string
+     */
+    public static $fieldWebsite = 'website';
+    /**
+     * @var string
+     */
+    public static $fieldVatNumber = 'vat_number';
+    /**
+     * @var string
+     */
+    public static $fieldIdNumber = 'id_number';
+
+
+    public function scopeScope($query, $publicId = false, $accountId = false)
+    {
+        if (! $accountId) {
+            $accountId = Auth::user()->account_id;
+        }
+
+        //$query->where($this->getTable() .'.account_id', '=', $accountId);
+        $query->where(function($query){
+            $query->where($this->getTable() .'.type', '=', 'Client')->orWhere($this->getTable() .'.type', '=', 'Partner')->orWhere($this->getTable() .'.type', '=', 'Lead')->orWhere($this->getTable() .'.type', '=', 'Management');
+        });
+        
+        if ($publicId) {
+            if (is_array($publicId)) {
+                $query->whereIn('public_id', $publicId);
+            } else {
+                $query->wherePublicId($publicId);
+            }
+        }
+
+        /* if (Auth::check() && ! Auth::user()->hasPermission('view_all') && method_exists($this, 'getEntityType') && $this->getEntityType() != ENTITY_TAX_RATE) {
+            $query->where(Utils::pluralizeEntityType($this->getEntityType()) . '.user_id', '=', Auth::user()->id);
+        } */
+
+        return $query;
+    }
+    
+    public function scopeLead($query, $publicId = false, $accountId = false)
+    {
+        if (! $accountId) {
+            $accountId = Auth::user()->account_id;
+        }
+
+        //$query->where($this->getTable() .'.account_id', '=', $accountId);
+        $query->where(function($query){
+            $query->where($this->getTable() .'.type', '=', 'Client')
+                ->orWhere($this->getTable() .'.type', '=', 'Lead');
+        });
+
+        if ($publicId) {
+            if (is_array($publicId)) {
+                $query->whereIn('public_id', $publicId);
+            } else {
+                $query->wherePublicId($publicId);
+            }
+        }
+
+        /* if (Auth::check() && ! Auth::user()->hasPermission('view_all') && method_exists($this, 'getEntityType') && $this->getEntityType() != ENTITY_TAX_RATE) {
+            $query->where(Utils::pluralizeEntityType($this->getEntityType()) . '.user_id', '=', Auth::user()->id);
+        } */
+
+        return $query;
+    }
     /**
      * @return array
      */
     public static function getImportColumns()
     {
         return [
-            'name',
-            'work_phone',
-            'address1',
-            'address2',
-            'city',
-            'state',
-            'postal_code',
-            'public_notes',
-            'private_notes',
-            'country',
-            'website',
-            'currency',
-            'vat_number',
-            'id_number',
-            'custom1',
-            'custom2',
-            'contact_first_name',
-            'contact_last_name',
-            'contact_phone',
-            'contact_email',
-            'contact_custom1',
-            'contact_custom2',
+            self::$fieldName,
+            self::$fieldPhone,
+            self::$fieldAddress1,
+            self::$fieldAddress2,
+            self::$fieldCity,
+            self::$fieldState,
+            self::$fieldPostalCode,
+            self::$fieldCountry,
+            self::$fieldNotes,
+            self::$fieldWebsite,
+            self::$fieldVatNumber,
+            self::$fieldIdNumber,
+            Contact::$fieldFirstName,
+            Contact::$fieldLastName,
+            Contact::$fieldPhone,
+            Contact::$fieldEmail,
         ];
     }
 
@@ -100,24 +217,22 @@ class Client extends EntityModel
     public static function getImportMap()
     {
         return [
-            'first' => 'contact_first_name',
-            'last^last4' => 'contact_last_name',
-            'email' => 'contact_email',
-            'work|office' => 'work_phone',
-            'mobile|phone' => 'contact_phone',
-            'name|organization|description^card' => 'name',
-            'apt|street2|address2|line2' => 'address2',
-            'street|address1|line1^avs' => 'address1',
+            'first' => 'first_name',
+            'last' => 'last_name',
+            'email' => 'email',
+            'mobile|phone' => 'phone',
+            'name|organization' => 'name',
+            'apt|street2|address2' => 'address2',
+            'street|address|address1' => 'address1',
             'city' => 'city',
             'state|province' => 'state',
-            'zip|postal|code^avs' => 'postal_code',
+            'zip|postal|code' => 'postal_code',
             'country' => 'country',
-            'public' => 'public_notes',
-            'private|note' => 'private_notes',
+            'note' => 'notes',
             'site|website' => 'website',
-            'currency' => 'currency',
             'vat' => 'vat_number',
             'number' => 'id_number',
+            
         ];
     }
 
@@ -129,6 +244,9 @@ class Client extends EntityModel
         return $this->belongsTo('App\Models\Account');
     }
 
+    public function reports(){
+        return $this->hasMany("App\Models\ServiceReport","company","old_id")->orderby("id","desc")->limit(5);
+    }
     /**
      * @return mixed
      */
@@ -174,7 +292,31 @@ class Client extends EntityModel
      */
     public function contacts()
     {
-        return $this->hasMany('App\Models\Contact');
+        $hasMany = $this->hasMany('App\Models\Contact')->with('billingAddress')->orderBy(DB::raw('CONCAT(contacts.first_name," ",contacts.last_name)'),"ASC");
+        return $hasMany;
+    }
+
+    public function mainAddress(){
+        return $this->hasOne('App\Models\Address','entity_id',"id")
+            ->where("address_type","account")->where("type","Main");
+    }
+    
+
+    public function getAssociation(){
+
+		$associations = Association::select('element_a as element_id')->where("element_b_type",'account')->where("element_b",$this->id)
+                ->where('element_a_type','contact');
+        $associations1 = Association::select('element_b as element_id')->where("element_a_type",'account')->where("element_a",$this->id)
+            ->where('element_b_type','contact');
+        $associations->union($associations1);
+        //die($associations->toSql());
+        $_associations = [];
+        foreach ($associations->get() as $association){
+            $_associations[] = $association->element_id;
+        }
+
+        return Contact::whereIn("id",$_associations)->with("billingAddress")->orderBy(DB::raw('CONCAT(contacts.first_name," ",contacts.last_name)'),"ASC")->get();
+
     }
 
     /**
@@ -201,6 +343,40 @@ class Client extends EntityModel
         return $this->belongsTo('App\Models\Currency');
     }
 
+
+    public function getMainAddress(){
+        $address = Address::where("type",'Main')
+            ->where("address_type","account")
+             ->where("entity_id",$this->id)
+            ->first();
+
+        return $address;
+    }
+    public function billingAddress(){
+        return $this->hasOne('App\Models\Address','entity_id',"id")
+        ->where("address_type","account")->where("type","Billing");
+        
+    }
+    public function getBillingAddress(){
+        $address = Address::where("type",'Billing')
+            ->where("address_type","account")
+             ->where("entity_id",$this->id)
+            ->first();
+            if(isset($_GET['dev'])){
+                var_Dump($address);
+                die;
+            }
+        if($address && !empty($address->address1)) return $address; 
+        else{
+            $data = $this->getMainAddress();
+            $data->id = false;
+            $data->type = "Billing";
+            return $data;
+           
+           
+        }
+        return $address;
+    }
     /**
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
@@ -249,6 +425,10 @@ class Client extends EntityModel
         return $this->hasMany('App\Models\Expense', 'client_id', 'id')->withTrashed();
     }
 
+     public function addresses(){
+        return $this->hasMany("App\Models\Address","entity_id")->where("address_type","account");
+    }
+
     /**
      * @param $data
      * @param bool $isPrimary
@@ -281,10 +461,15 @@ class Client extends EntityModel
                 $contact->password = null;
             }
         }
-
+        $client_id = $contact->client_id;
         $contact->fill($data);
+        if($client_id){
+            $contact->client_id = $client_id;
+            $contact->save();
+            return $contact;
+        }
+
         $contact->is_primary = $isPrimary;
-        $contact->email = trim($contact->email);
 
         return $this->contacts()->save($contact);
     }
@@ -347,9 +532,14 @@ class Client extends EntityModel
      */
     public function getDisplayName()
     {
+        $name = "";
         if ($this->name) {
-            return $this->name;
+            $name =  $this->name;
         }
+        if($this->suffix){
+            $name .= " ({$this->suffix})";
+        }
+        if($name) return $name;
 
         if (! count($this->contacts)) {
             return '';
@@ -518,7 +708,6 @@ class Client extends EntityModel
 
         return $this->account->country ? $this->account->country->iso_3166_2 : 'US';
     }
-
 
     /**
      * @param $isQuote

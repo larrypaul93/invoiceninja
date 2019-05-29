@@ -11,11 +11,14 @@ use App\Models\Invoice;
 use App\Models\InvoiceDesign;
 use App\Models\Product;
 use App\Models\TaxRate;
+use App\Models\User;
 use App\Ninja\Datatables\InvoiceDatatable;
 use App\Ninja\Mailers\ContactMailer as Mailer;
 use App\Ninja\Repositories\ClientRepository;
 use App\Ninja\Repositories\InvoiceRepository;
 use App\Services\InvoiceService;
+use App\Models\ServiceReport;
+use Modules\Templates\Models\Templates;
 use Auth;
 use Cache;
 use Input;
@@ -78,9 +81,25 @@ class QuoteController extends BaseController
         $invoice = $account->createInvoice(ENTITY_QUOTE, $clientId);
         $invoice->public_id = 0;
 
+        if($invoice->client->id){
+            $invoice->load( 'account.country','client.mainAddress', 'client.contacts', 'client.country','client.reports');
+            $invoice->client->load('contacts', 'country','mainAddress','reports');
+            $Contacts = $invoice->client->getAssociation();
+            //$_contacts = $client->contacts;
+
+            // var_dump($client->id,$client->contacts->count(),$Contacts->count());
+            $invoice->client->contactsNew = $invoice->client->contacts->merge($Contacts);
+        }
+        
+        
+        $invoice->user_quote_signature = Auth::user()->signature;
+        $invoice->user_name = Auth::user()->getContact()->getName();
+        $invoice->user_position = Auth::user()->getContact()->position;
+        $invoice->invoice_design_id = 12;
         $data = [
             'entityType' => $invoice->getEntityType(),
             'invoice' => $invoice,
+            'contacts' =>json_encode([]),
             'data' => Input::old('data'),
             'method' => 'POST',
             'url' => 'invoices',
@@ -94,20 +113,46 @@ class QuoteController extends BaseController
     private static function getViewModel()
     {
         $account = Auth::user()->account;
+        $clients = Client::lead()->with('contacts', 'country','mainAddress','reports')->has('contacts')->orderBy('name')->limit(10);
+        if (! Auth::user()->hasPermission('view_all')) {
+            $clients = $clients->where('clients.user_id', '=', Auth::user()->id);
+        }
 
+        $clients = $clients->get();
+        foreach ($clients as $client){
+
+            $Contacts = $client->getAssociation();
+            //$_contacts = $client->contacts;
+
+            // var_dump($client->id,$client->contacts->count(),$Contacts->count());
+            $client->contactsNew = $client->contacts->merge($Contacts);
+            // $client->contacts = $client->contactsNew;
+            // var_dump($client->contactsNew->count());
+            //echo "<br>";
+        }
+        $accountManger = User::orderBy("users.name","asc")->get(["users.id","users.name"]);
+        
         return [
           'entityType' => ENTITY_QUOTE,
           'account' => $account,
-          'products' => Product::scope()->orderBy('product_key')->get(),
+          'products' => Product::scope()->with('default_tax_rate')->orderBy('product_key')->get(),
           'taxRateOptions' => $account->present()->taxRateOptions,
-          'clients' => Client::scope()->with('contacts', 'country')->orderBy('name')->get(),
+          'defaultTax' => $account->default_tax_rate,
+          'countries' => Cache::get('countries'),
+          'clients' => $clients,
           'taxRates' => TaxRate::scope()->orderBy('name')->get(),
+          'templates' => Templates::scope()->get(["id","name"]),
+          'currencies' => Cache::get('currencies'),
           'sizes' => Cache::get('sizes'),
+          'showBreadcrumbs' => false,
           'paymentTerms' => Cache::get('paymentTerms'),
+          'languages' => Cache::get('languages'),
+          'industries' => Cache::get('industries'),
           'invoiceDesigns' => InvoiceDesign::getDesigns(),
           'invoiceFonts' => Cache::get('fonts'),
           'invoiceLabels' => Auth::user()->account->getInvoiceLabels(),
           'isRecurring' => false,
+          'accountManger' => $accountManger,
           'expenses' => [],
         ];
     }
@@ -155,7 +200,7 @@ class QuoteController extends BaseController
                 return redirect("view/{$invitationKey}")->withError(trans('texts.quote_has_expired'));
             }
         }
-
+        
         $invitationKey = $this->invoiceService->approveQuote($invoice, $invitation);
         Session::flash('message', trans('texts.quote_is_approved'));
 

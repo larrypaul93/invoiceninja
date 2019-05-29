@@ -5,7 +5,6 @@ namespace App\Ninja\Import;
 use Carbon;
 use League\Fractal\TransformerAbstract;
 use Utils;
-use Exception;
 
 /**
  * Class BaseTransformer.
@@ -101,49 +100,11 @@ class BaseTransformer extends TransformerAbstract
      *
      * @return null
      */
-    public function getProduct($data, $key, $field, $default = false)
+    public function getProductId($name)
     {
-        $productKey = trim(strtolower($data->$key));
+        $name = strtolower(trim($name));
 
-        if (! isset($this->maps['product'][$productKey])) {
-            return $default;
-        }
-
-        $product = $this->maps['product'][$productKey];
-
-        return $product->$field ?: $default;
-    }
-
-    /**
-     * @param $name
-     *
-     * @return null
-     */
-    public function getContact($email)
-    {
-        $email = trim(strtolower($email));
-
-        if (! isset($this->maps['contact'][$email])) {
-            return false;
-        }
-
-        return $this->maps['contact'][$email];
-    }
-
-    /**
-     * @param $name
-     *
-     * @return null
-     */
-    public function getCustomer($key)
-    {
-        $key = trim($key);
-
-        if (! isset($this->maps['customer'][$key])) {
-            return false;
-        }
-
-        return $this->maps['customer'][$key];
+        return isset($this->maps[ENTITY_PRODUCT][$name]) ? $this->maps[ENTITY_PRODUCT][$name] : null;
     }
 
     /**
@@ -173,30 +134,6 @@ class BaseTransformer extends TransformerAbstract
     /**
      * @param $name
      *
-     * @return null
-     */
-    public function getTaxRate($name)
-    {
-        $name = strtolower(trim($name));
-
-        return isset($this->maps['tax_rates'][$name]) ? $this->maps['tax_rates'][$name] : 0;
-    }
-
-    /**
-     * @param $name
-     *
-     * @return null
-     */
-    public function getTaxName($name)
-    {
-        $name = strtolower(trim($name));
-
-        return isset($this->maps['tax_names'][$name]) ? $this->maps['tax_names'][$name] : '';
-    }
-
-    /**
-     * @param $name
-     *
      * @return mixed
      */
     public function getFirstName($name)
@@ -221,7 +158,6 @@ class BaseTransformer extends TransformerAbstract
                 $date = new Carbon($date);
             } catch (Exception $e) {
                 // if we fail to parse return blank
-                $date = false;
             }
         }
 
@@ -247,7 +183,7 @@ class BaseTransformer extends TransformerAbstract
      */
     public function getInvoiceNumber($number)
     {
-        return $number ? str_pad(trim($number), 4, '0', STR_PAD_LEFT) : null;
+        return str_pad(trim($number), 4, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -259,19 +195,8 @@ class BaseTransformer extends TransformerAbstract
     {
         $invoiceNumber = $this->getInvoiceNumber($invoiceNumber);
         $invoiceNumber = strtolower($invoiceNumber);
-        return isset($this->maps[ENTITY_INVOICE][$invoiceNumber]) ? $this->maps[ENTITY_INVOICE][$invoiceNumber] : null;
-    }
 
-    /**
-     * @param $invoiceNumber
-     *
-     * @return null
-     */
-    public function getInvoicePublicId($invoiceNumber)
-    {
-        $invoiceNumber = $this->getInvoiceNumber($invoiceNumber);
-        $invoiceNumber = strtolower($invoiceNumber);
-        return isset($this->maps['invoices'][$invoiceNumber]) ? $this->maps['invoices'][$invoiceNumber]->public_id : null;
+        return isset($this->maps[ENTITY_INVOICE][$invoiceNumber]) ? $this->maps[ENTITY_INVOICE][$invoiceNumber] : null;
     }
 
     /**

@@ -15,7 +15,7 @@
 
 <script type="text/javascript">
 
-    @if (Auth::user()->hasPermission('view_all'))
+    @if (Auth::user())
         function loadChart(data) {
             var ctx = document.getElementById('chart-canvas').getContext('2d');
             if (window.myChart) {
@@ -42,11 +42,11 @@
                                 },
                                 label: function(item, data) {
                                     if (item.datasetIndex == 0) {
-                                        var label = " {!! trans('texts.invoices') !!}: ";
+                                        var label = " {{ trans('texts.invoices') }}: ";
                                     } else if (item.datasetIndex == 1) {
-                                        var label = " {!! trans('texts.payments') !!}: ";
+                                        var label = " {{ trans('texts.payments') }}: ";
                                     } else if (item.datasetIndex == 2) {
-                                        var label = " {!! trans('texts.expenses') !!}: ";
+                                        var label = " {{ trans('texts.expenses') }}: ";
                                     }
 
                                     return label + formatMoney(item.yLabel, chartCurrencyId, account.country_id);
@@ -95,15 +95,18 @@
             // Initialize date range selector
 			chartStartDate = moment().subtract(29, 'days');
 	        chartEndDate = moment();
-			lastRange = false;
 
 			if (isStorageSupported()) {
-				lastRange = localStorage.getItem('last:dashboard_range');
-				dateRange = dateRanges[lastRange];
+				var lastRange = localStorage.getItem('last:dashboard_range');
+                
+                if (lastRange) 
+                    $('.range-label-div').text(lastRange);
 
-				if (dateRange) {
-					chartStartDate = dateRange[0];
-					chartEndDate = dateRange[1];
+				lastRange = dateRanges[lastRange];
+				if (lastRange) {
+                   // $('.range-label-div').text(lastRange);
+					chartStartDate = lastRange[0];
+					chartEndDate = lastRange[1];
 				}
 
 				@if (count($currencies) > 1)
@@ -125,10 +128,7 @@
                 $('#reportrange span').html(start.format('{{ $account->getMomentDateFormat() }}') + ' - ' + end.format('{{ $account->getMomentDateFormat() }}'));
                 chartStartDate = start;
                 chartEndDate = end;
-				$('.range-label-div').show();
-				if (label) {
-					$('.range-label-div').text(label);
-				}
+				$('.range-label-div').text(label);
                 loadData();
 
 				if (isStorageSupported() && label && label != "{{ trans('texts.custom_range') }}") {
@@ -138,10 +138,8 @@
 
             $('#reportrange').daterangepicker({
                 locale: {
-					format: "{{ $account->getMomentDateFormat() }}",
+                    format: "{{ $account->getMomentDateFormat() }}",
 					customRangeLabel: "{{ trans('texts.custom_range') }}",
-					applyLabel: "{{ trans('texts.apply') }}",
-					cancelLabel: "{{ trans('texts.cancel') }}",
                 },
 				startDate: chartStartDate,
                 endDate: chartEndDate,
@@ -149,7 +147,7 @@
                 ranges: dateRanges,
             }, cb);
 
-            cb(chartStartDate, chartEndDate, lastRange);
+            cb(chartStartDate, chartEndDate);
 
             $("#currency-btn-group > .btn").click(function(){
                 $(this).addClass("active").siblings().removeClass("active");
@@ -170,7 +168,7 @@
             });
 
             function loadData() {
-                var includeExpenses = "{{ $showExpenses ? 'true' : 'false' }}";
+                var includeExpenses = "{{ count($expenses) ? 'true' : 'false' }}";
                 var url = "{!! url('/dashboard_chart_data') !!}/" + chartGroupBy + '/' + chartStartDate.format('YYYY-MM-DD') + '/' + chartEndDate.format('YYYY-MM-DD') + '/' + chartCurrencyId + '/' + includeExpenses;
                 $.get(url, function(response) {
                     response = JSON.parse(response);
@@ -219,7 +217,7 @@
     @else
         <div class="col-md-10">
     @endif
-        @if (Auth::user()->hasPermission('view_all'))
+        @if (Auth::user())
         <div class="pull-right">
             @if (count($currencies) > 1)
             <div id="currency-btn-group" class="btn-group" role="group" style="border: 1px solid #ccc;">
@@ -258,7 +256,7 @@
         <div class="panel panel-default">
             <div class="panel-body revenue-panel">
                 <div style="overflow:hidden">
-                    <div class="{{ $headerClass }}">
+                    <div class="in-thin">
                         {{ trans('texts.total_revenue') }}
                     </div>
                     <div class="revenue-div in-bold pull-right" style="color:#337ab7">
@@ -279,7 +277,7 @@
 							&nbsp;
 						</div>
                     </div>
-					<div class="range-label-div {{ $footerClass }} pull-right" style="color:#337ab7;font-size:16px;display:none;">
+					<div class="range-label-div in-thin pull-right" style="color:#337ab7;font-size:16px;">
 						{{ trans('texts.last_30_days') }}
 					</div>
                 </div>
@@ -290,8 +288,8 @@
         <div class="panel panel-default">
             <div class="panel-body expenses-panel">
                 <div style="overflow:hidden">
-                    @if ($showExpenses)
-                        <div class="{{ $headerClass }}">
+                    @if (count($expenses))
+                        <div class="in-thin">
                             {{ trans('texts.total_expenses') }}
                         </div>
                         <div class="expenses-div in-bold pull-right" style="color:#337ab7">
@@ -307,7 +305,7 @@
 							</div>
                         </div>
                     @else
-                        <div class="{{ $headerClass }}">
+                        <div class="in-thin">
                             {{ trans('texts.average_invoice') }}
                         </div>
                         <div class="average-div in-bold pull-right" style="color:#337ab7">
@@ -329,7 +327,7 @@
 							</div>
                         </div>
                     @endif
-					<div class="range-label-div {{ $footerClass }} pull-right" style="color:#337ab7;font-size:16px;display:none;">
+					<div class="range-label-div in-thin pull-right" style="color:#337ab7;font-size:16px;">
 						{{ trans('texts.last_30_days') }}
 					</div>
                 </div>
@@ -340,7 +338,7 @@
         <div class="panel panel-default">
             <div class="panel-body outstanding-panel">
                 <div style="overflow:hidden">
-                    <div class="{{ $headerClass }}">
+                    <div class="in-thin">
                         {{ trans('texts.outstanding') }}
                     </div>
                     <div class="outstanding-div in-bold pull-right" style="color:#337ab7">
@@ -361,7 +359,7 @@
 							&nbsp;
 						</div>
                     </div>
-					<div class="range-label-div {{ $footerClass }} pull-right" style="color:#337ab7;font-size:16px;display:none;">
+					<div class="range-label-div in-thin pull-right" style="color:#337ab7;font-size:16px;">
 						{{ trans('texts.last_30_days') }}
 					</div>
                 </div>
@@ -370,7 +368,7 @@
     </div>
 </div>
 
-@if (Auth::user()->hasPermission('view_all'))
+@if (Auth::user())
 <div class="row">
     <div class="col-md-12">
         <div id="progress-div" class="progress">
@@ -386,7 +384,7 @@
 <div class="row">
     <div class="col-md-6">
         <div class="panel panel-default dashboard" style="height:320px">
-            <div class="panel-heading">
+            <div class="panel-heading" style="background-color:#286090 !important">
                 <h3 class="panel-title in-bold-white">
                     <i class="glyphicon glyphicon-exclamation-sign"></i> {{ trans('texts.activity') }}
                     @if ($invoicesSent)
@@ -415,7 +413,7 @@
         <div class="panel panel-default dashboard" style="height:320px;">
             <div class="panel-heading" style="margin:0; background-color: #f5f5f5 !important;">
                 <h3 class="panel-title" style="color: black !important">
-                    @if ($showExpenses && count($averageInvoice))
+                    @if (count($expenses) && count($averageInvoice))
                         <div class="pull-right" style="font-size:14px;padding-top:4px;font-weight:bold">
                             @foreach ($averageInvoice as $item)
                                 <span class="currency currency_{{ $item->currency_id ?: $account->getCurrencyId() }}" style="display:none">
@@ -596,5 +594,13 @@
         </div>
     </div>
 @endif
+
+<script type="text/javascript">
+    $(function() {
+        $('.normalDropDown:not(.dropdown-toggle)').click(function() {
+            window.location = '{{ URL::to('invoices/create') }}';
+        });
+    });
+</script>
 
 @stop

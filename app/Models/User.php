@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laracasts\Presenter\PresentableTrait;
 use Session;
+use Auth;
+use App\Models\Contact;
 use App\Models\LookupUser;
 use Illuminate\Notifications\Notifiable;
 
@@ -54,6 +56,7 @@ class User extends Authenticatable
         'email',
         'password',
         'phone',
+        'signature'
     ];
 
     /**
@@ -62,8 +65,8 @@ class User extends Authenticatable
      * @var array
      */
     protected $hidden = [
-        'password',
-        'remember_token',
+        'password', 
+        'remember_token', 
         'confirmation_code',
         'oauth_user_id',
         'oauth_provider_id',
@@ -81,7 +84,11 @@ class User extends Authenticatable
      */
     public function account()
     {
-        return $this->belongsTo('App\Models\Account');
+        $account = Session::get("account_id");
+        if($account && $this->id == Auth::user()->id)
+            $this->account_id = $account;
+         
+            return $this->belongsTo('App\Models\Account');
     }
 
     /**
@@ -194,6 +201,16 @@ class User extends Authenticatable
         }
     }
 
+    public function getContact(){
+        return Contact::where("id",$this->context_id)->first();
+    }
+
+    public function getRep(){
+
+        $repo = substr($this->first_name,0,1);
+        $repo .= substr($this->last_name,0,1);
+        return strtoupper($repo);
+    }
     /**
      * @return bool
      */
@@ -367,6 +384,7 @@ class User extends Authenticatable
      */
     public function hasPermission($permission, $requireAll = false)
     {
+        //var_dump($this->permissions);
         if ($this->is_admin) {
             return true;
         } elseif (is_string($permission)) {

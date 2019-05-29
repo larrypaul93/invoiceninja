@@ -1,4 +1,4 @@
-{!! Former::open('settings/change_plan')->addClass('upgrade-form') !!}
+{{--  {!! Former::open('settings/change_plan')->addClass('upgrade-form') !!}
 
 <span style="display:none">
 {!! Former::text('plan') !!}
@@ -143,3 +143,4 @@
   })
 
 </script>
+  --}}

@@ -80,7 +80,7 @@ class RecurringExpense extends EntityModel
      */
     public function vendor()
     {
-        return $this->belongsTo('App\Models\Vendor')->withTrashed();
+        return $this->belongsTo('Modules\Suppliers\Models\Suppliers')->withTrashed();
     }
 
     /**

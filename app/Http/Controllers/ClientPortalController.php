@@ -8,7 +8,9 @@ use App\Models\Contact;
 use App\Models\Document;
 use App\Models\Gateway;
 use App\Models\Invitation;
+use App\Models\Invoice;
 use App\Models\PaymentMethod;
+use App\Models\ClientPortalEmail;
 use App\Ninja\Repositories\ActivityRepository;
 use App\Ninja\Repositories\CreditRepository;
 use App\Ninja\Repositories\DocumentRepository;
@@ -16,6 +18,7 @@ use App\Ninja\Repositories\InvoiceRepository;
 use App\Ninja\Repositories\PaymentRepository;
 use App\Ninja\Repositories\TaskRepository;
 use App\Services\PaymentService;
+use App\Ninja\Mailers\ContactMailer;
 use Auth;
 use Barracuda\ArchiveStream\ZipArchive;
 use Cache;
@@ -30,6 +33,7 @@ use URL;
 use Utils;
 use Validator;
 use View;
+use DB;
 
 class ClientPortalController extends BaseController
 {
@@ -37,14 +41,7 @@ class ClientPortalController extends BaseController
     private $paymentRepo;
     private $documentRepo;
 
-    public function __construct(
-        InvoiceRepository $invoiceRepo,
-        PaymentRepository $paymentRepo,
-        ActivityRepository $activityRepo,
-        DocumentRepository $documentRepo,
-        PaymentService $paymentService,
-        CreditRepository $creditRepo,
-        TaskRepository $taskRepo)
+    public function __construct(InvoiceRepository $invoiceRepo, PaymentRepository $paymentRepo, ActivityRepository $activityRepo, DocumentRepository $documentRepo, PaymentService $paymentService, CreditRepository $creditRepo,TaskRepository $taskRepo)
     {
         $this->invoiceRepo = $invoiceRepo;
         $this->paymentRepo = $paymentRepo;
@@ -62,6 +59,7 @@ class ClientPortalController extends BaseController
         }
 
         $invoice = $invitation->invoice;
+        $invoice->load("invitations");
         $client = $invoice->client;
         $account = $invoice->account;
 
@@ -77,6 +75,10 @@ class ClientPortalController extends BaseController
         }
 
         $account->loadLocalizationSettings($client);
+        
+        if (! Input::has('phantomjs')) {
+            $this->invoiceRepo->clearGatewayFee($invoice);
+        } 
 
         if (! Input::has('phantomjs') && ! session('silent:' . $client->id) && ! Session::has($invitation->invitation_key)
             && (! Auth::check() || Auth::user()->account_id != $invoice->account_id)) {
@@ -111,6 +113,7 @@ class ClientPortalController extends BaseController
             'last_name',
             'email',
             'phone',
+            'position'
         ]);
 
         // translate the country names
@@ -136,16 +139,24 @@ class ClientPortalController extends BaseController
         if ($wepayGateway = $account->getGatewayConfig(GATEWAY_WEPAY)) {
             $data['enableWePayACH'] = $wepayGateway->getAchEnabled();
         }
+
         if ($stripeGateway = $account->getGatewayConfig(GATEWAY_STRIPE)) {
             //$data['enableStripeSources'] = $stripeGateway->getAlipayEnabled();
             $data['enableStripeSources'] = true;
         }
 
         $showApprove = $invoice->quote_invoice_id ? false : true;
+        if ($invoice->due_date) {
+            $showApprove = time() < strtotime($invoice->getOriginal('due_date'));
+        }
         if ($invoice->invoice_status_id >= INVOICE_STATUS_APPROVED) {
             $showApprove = false;
         }
 
+        $invoice->user_quote_signature = $invoice->user->signature;
+        $invoice->user_name = $invoice->user->getContact()->getName();
+        $invoice->user_position = $invoice->user->getContact()->position;
+        
         $data += [
             'account' => $account,
             'showApprove' => $showApprove,
@@ -159,6 +170,14 @@ class ClientPortalController extends BaseController
             'phantomjs' => Input::has('phantomjs'),
             'gatewayTypeId' => count($paymentTypes) == 1 ? $paymentTypes[0]['gatewayTypeId'] : false,
         ];
+
+        if ($paymentDriver = $account->paymentDriver($invitation, GATEWAY_TYPE_CREDIT_CARD)) {
+            $data += [
+                'transactionToken' => $paymentDriver->createTransactionToken(),
+                'partialView' => $paymentDriver->partialView(),
+                'accountGateway' => $paymentDriver->accountGateway,
+            ];
+        }
 
         if ($invoice->canBePaid()) {
             if ($paymentDriver = $account->paymentDriver($invitation, GATEWAY_TYPE_CREDIT_CARD)) {
@@ -176,6 +195,7 @@ class ClientPortalController extends BaseController
                 ];
             }
         }
+
 
         if ($account->hasFeature(FEATURE_DOCUMENTS) && $this->canCreateZip()) {
             $zipDocs = $this->getInvoiceZipDocuments($invoice, $size);
@@ -353,7 +373,6 @@ class ClientPortalController extends BaseController
             'title' => trans('texts.recurring_invoices'),
             'entityType' => ENTITY_RECURRING_INVOICE,
             'columns' => Utils::trans($columns),
-            'sortColumn' => 1,
         ];
 
         return response()->view('public_list', $data);
@@ -380,8 +399,7 @@ class ClientPortalController extends BaseController
             'client' => $contact->client,
             'title' => trans('texts.invoices'),
             'entityType' => ENTITY_INVOICE,
-            'columns' => Utils::trans(['invoice_number', 'invoice_date', 'invoice_total', 'balance_due', 'due_date', 'status']),
-            'sortColumn' => 1,
+            'columns' => Utils::trans(['invoice_number','po_number', 'invoice_date', 'invoice_total', 'balance_due', 'due_date','status','']),
         ];
 
         return response()->view('public_list', $data);
@@ -426,7 +444,6 @@ class ClientPortalController extends BaseController
             'entityType' => ENTITY_PAYMENT,
             'title' => trans('texts.payments'),
             'columns' => Utils::trans(['invoice', 'transaction_reference', 'method', 'payment_amount', 'payment_date', 'status']),
-            'sortColumn' => 4,
         ];
 
         return response()->view('public_list', $data);
@@ -444,7 +461,7 @@ class ClientPortalController extends BaseController
                     return $model->invitation_key ? link_to('/view/'.$model->invitation_key, $model->invoice_number)->toHtml() : $model->invoice_number;
                 })
                 ->addColumn('transaction_reference', function ($model) {
-                    return $model->transaction_reference ? e($model->transaction_reference) : '<i>'.trans('texts.manual_entry').'</i>';
+                    return $model->transaction_reference ? $model->transaction_reference : '<i>'.trans('texts.manual_entry').'</i>';
                 })
                 ->addColumn('payment_type', function ($model) {
                     return ($model->payment_type && ! $model->last4) ? $model->payment_type : ($model->account_gateway_id ? '<i>Online payment</i>' : '');
@@ -510,8 +527,7 @@ class ClientPortalController extends BaseController
           'account' => $account,
           'title' => trans('texts.quotes'),
           'entityType' => ENTITY_QUOTE,
-          'columns' => Utils::trans(['quote_number', 'quote_date', 'quote_total', 'due_date', 'status']),
-          'sortColumn' => 1,
+          'columns' => Utils::trans(['quote_number','po_number', 'quote_date', 'quote_total', 'valid_until','status','']),
         ];
 
         return response()->view('public_list', $data);
@@ -547,7 +563,6 @@ class ClientPortalController extends BaseController
           'title' => trans('texts.credits'),
           'entityType' => ENTITY_CREDIT,
           'columns' => Utils::trans(['credit_date', 'credit_amount', 'credit_balance', 'notes']),
-          'sortColumn' => 0,
         ];
 
         return response()->view('public_list', $data);
@@ -623,7 +638,6 @@ class ClientPortalController extends BaseController
           'title' => trans('texts.documents'),
           'entityType' => ENTITY_DOCUMENT,
           'columns' => Utils::trans(['invoice_number', 'name', 'document_date', 'document_size']),
-          'sortColumn' => 2,
         ];
 
         return response()->view('public_list', $data);
@@ -643,11 +657,11 @@ class ClientPortalController extends BaseController
         if (request()->phantomjs) {
             abort(404);
         }
-
+        
         return response()->view('error', [
             'error' => $error ?: trans('texts.invoice_not_found'),
             'hideHeader' => true,
-            'account' => $this->getContact() ? $this->getContact()->account : false,
+            'account' =>  $this->getContact() ? $this->getContact()->account : false,
         ]);
     }
 
@@ -805,9 +819,11 @@ class ClientPortalController extends BaseController
         $document = Document::scope($publicId, $invitation->account_id)->firstOrFail();
 
         $authorized = false;
-        if ($document->is_default) {
+        if ($document->is_default) { 
             $authorized = true;
         } elseif ($document->expense && $document->expense->invoice_documents && $document->expense->client_id == $invitation->invoice->client_id) {
+            $authorized = true;
+        } elseif ($document->invoice && $document->invoice->client_id == $invitation->invoice->client_id) {
             $authorized = true;
         } elseif ($document->invoice && $document->invoice->client_id == $invitation->invoice->client_id) {
             $authorized = true;
@@ -960,4 +976,279 @@ class ClientPortalController extends BaseController
 
         return Redirect::to('client/invoices/recurring');
     }
+
+    public function reportIndex(){
+         if (! $contact = $this->getContact()) {
+            return $this->returnError();
+        }
+
+        $account = $contact->account;
+        $account->loadLocalizationSettings($contact->client);
+
+        if (! $account->enable_client_portal) {
+            return $this->returnError();
+        }
+
+        $color = $account->primary_color ? $account->primary_color : '#0b4d78';
+
+        $data = [
+          'color' => $color,
+          'account' => $account,
+          'title' => 'Services Reports',
+          'entityType' => 'service_report',
+          'columns' => Utils::trans(['report_no', 'date_of_service', 'type','']),
+        ];
+
+        return response()->view('public_list', $data);
+    }
+
+    public function reportDatatable(){
+        if (! $contact = $this->getContact()) {
+            return false;
+        }
+
+        $associations = DB::connection('mysqlgd')->table('gd_associations')->select('element_a as element_id')->where("element_b_type",'contact')->where("element_b",$contact->old_id)
+                ->where('element_a_type','account');
+        $associations1 = DB::connection('mysqlgd')->table('gd_associations')->select('element_b as element_id')->where("element_a_type",'contact')->where("element_a",$contact->old_id)
+            ->where('element_b_type','account');
+        $associations->union($associations1);
+        //die($associations->toSql());
+        $_associations = [$contact->client->old_id];
+        foreach ($associations->get() as $association){
+            $_associations[] = $association->element_id;
+        }
+        //gd_associations
+        $query =  DB::connection('mysqlgd')->table('gd_service_reports')
+          ->whereIn('gd_service_reports.company', $_associations)
+          ->select(
+                'id',
+                'date_of_service',
+                'report_no',
+                'type'
+            );
+
+        $table = \Datatable::query($query)
+            ->addColumn('report_no', function ($model)  {
+                return link_to('/client/view-report/'.$model->report_no, $model->report_no)->toHtml();
+            })
+            ->addColumn('date_of_service', function ($model) {
+                return Utils::fromSqlDate($model->date_of_service);
+            })
+            ->addColumn('type', function ($model) {
+                $_type = [
+                    'kitchen-exhaust-hood-cleaning'=>'Kitchen Exhaust Hood Cleaning',
+                    'portable-extinguishers-and-emergency-lights'=>'Portable Extinguishers & Emergency Lights',
+                    'fire-suppression'=>'Fire Suppression',
+                    'fire-alarm-system'=>'Annual Fire Alarm System Test',
+                    'grease-interceptor' => 'Grease Interceptor'
+                ];
+                if(isset($_type[$model->type])) return $_type[$model->type];
+                return $model->type;
+            })
+            ->addColumn("actions",function ($model){
+                return '<a  onClick="return sendClientEmail(\'service-report\',\''.$model->report_no.'\');" class="btn btn-sm btn-info">Send Email</a>';
+            });
+
+        
+
+        return $table->make();
+    }
+
+    public function viewReport($report_no){
+         if (! $contact = $this->getContact()) {
+            return false;
+        }
+
+         $account = $contact->account;
+        $account->loadLocalizationSettings($contact->client);
+
+        if (! $account->enable_client_portal) {
+            return $this->returnError();
+        }
+
+        $color = $account->primary_color ? $account->primary_color : '#0b4d78';
+
+        $data = [
+          'color' => $color,
+          'account' => $account,
+          'report_no'=>$report_no,
+          'title' => trans('Service Report'),
+          'entityType' => 'service_report'
+        ];
+
+        return response()->view('view_report', $data);
+
+         
+
+    }
+
+    public function getPdfReport($report_no){
+        if($email = ClientPortalEmail::where("email_key",$report_no)->first()){
+            $report_no = $email->entity_id;
+        }
+        else
+         if (! $contact = $this->getContact()) {
+
+            return false;
+        }
+
+        $report =  DB::connection('mysqlgd')->table('gd_service_reports')
+          //->where('gd_service_reports.company', '=', $contact->client->old_id)
+          ->where('gd_service_reports.report_no', '=', $report_no)
+          ->first();
+          header("Content-type:application/pdf");
+          readfile("/home/grease/public_html/accounts/pdf/Service-Report-File-{$report->id}.pdf");
+       exit;
+
+    }
+
+    public function sendEmail(ContactMailer $mailer){
+            $name = request("name");
+            $type = request("type");
+            $id = request("id");
+            $email = request("email");
+            $message = request("message");
+
+            $contact = $this->getContact();
+            $data = [
+                "template"=>$type,
+                "message"=>$message,
+                "name"=>$name,
+                "id"=>$id,
+                "type"=>$type,
+                "email"=>$email
+            ];
+            if($type == "service-report"){
+                $data['template']="report";
+                $mailer->sendClientReportEmail($contact,$data);
+                
+                
+            }
+            else if($type == "invoice" || $type == "quote"){
+                $invoice = Invoice::scope($id)->firstOrFail();
+                $mailer->sendClientInvoiceEmail($contact,$invoice,$data);
+            }
+            return Redirect::back()
+            ->withMessage("Email Successfuly sent to ". $name);
+    }
+
+    public function viewClientEmail($key){
+        $email = ClientPortalEmail::where("email_key",$key)->firstOrFail();
+        $contact = $email->contact;
+        $account = $contact->account;
+        $account->loadLocalizationSettings($contact->client);
+        
+
+        $color = $contact->account->primary_color ? $contact->account->primary_color : '#0b4d78';
+        if($email->type == 'service-report'){
+            $data = [
+                'color' => $color,
+                'account' => $contact->account,
+                'report_no'=>$email->entity_id,
+                'title' => trans('Service Report'),
+                'entityType' => 'service_report',
+                'is_guest' => true
+              ];
+      
+              return response()->view('guest_view_report', $data);
+        }
+        else {
+            return $this->viewInvoice($email);
+        }
+        
+    }
+
+
+    public function viewInvoice($email){
+       
+
+        $invoice = $email->invoice;
+        $invoice->load("invitations");
+        $client = $invoice->client;
+        $account = $invoice->account;
+
+        $account->loadLocalizationSettings($client);
+        
+        if (! Input::has('phantomjs')) {
+            $this->invoiceRepo->clearGatewayFee($invoice);
+        } 
+
+       
+
+        $invoice->invoice_date = Utils::fromSqlDate($invoice->invoice_date);
+        $invoice->due_date = Utils::fromSqlDate($invoice->due_date);
+        $invoice->features = [
+            'customize_invoice_design' => $account->hasFeature(FEATURE_CUSTOMIZE_INVOICE_DESIGN),
+            'remove_created_by' => $account->hasFeature(FEATURE_REMOVE_CREATED_BY),
+            'invoice_settings' => $account->hasFeature(FEATURE_INVOICE_SETTINGS),
+        ];
+        $invoice->invoice_fonts = $account->getFontsData();
+
+        if ($design = $account->getCustomDesign($invoice->invoice_design_id)) {
+            $invoice->invoice_design->javascript = $design;
+        } else {
+            $invoice->invoice_design->javascript = $invoice->invoice_design->pdfmake;
+        }
+        $contact = $email->contact;
+        $contact->setVisible([
+            'first_name',
+            'last_name',
+            'email',
+            'phone',
+            'position'
+        ]);
+
+        // translate the country names
+        if ($invoice->client->country) {
+            $invoice->client->country->name = trans('texts.country_' . $invoice->client->country->name);
+        }
+        if ($invoice->account->country) {
+            $invoice->account->country->name = trans('texts.country_' . $invoice->account->country->name);
+        }
+
+        $data = [];
+        
+
+        $showApprove = $invoice->quote_invoice_id ? false : true;
+        if ($invoice->due_date) {
+            $showApprove = time() < strtotime($invoice->getOriginal('due_date'));
+        }
+        if ($invoice->invoice_status_id >= INVOICE_STATUS_APPROVED) {
+            $showApprove = false;
+        }
+
+        $invoice->user_quote_signature = $invoice->user->signature;
+        $invoice->user_name = $invoice->user->getContact()->getName();
+        $invoice->user_position = $invoice->user->getContact()->position;
+        
+        $data += [
+            'account' => $account,
+            'showApprove' => $showApprove,
+            'showBreadcrumbs' => false,
+            'invoice' => $invoice->hidePrivateFields(),
+            'invoiceLabels' => $account->getInvoiceLabels(),
+            'contact' => $contact,
+            'phantomjs' => Input::has('phantomjs'),
+            'is_guest' => true
+            
+        ];
+
+       
+
+        
+
+
+        if ($account->hasFeature(FEATURE_DOCUMENTS) && $this->canCreateZip()) {
+            $zipDocs = $this->getInvoiceZipDocuments($invoice, $size);
+
+            if (count($zipDocs) > 1) {
+                $data['documentsZipURL'] = URL::to("client/documents/{$invitation->invitation_key}");
+                $data['documentsZipSize'] = $size;
+            }
+        }
+
+        return View::make('invoices.guest_view', $data);
+    }
+
+    
 }

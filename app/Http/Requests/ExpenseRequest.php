@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\ExpenseCategory;
 use App\Models\Vendor;
+use App\Models\Client;
 
 class ExpenseRequest extends EntityRequest
 {
@@ -42,16 +43,18 @@ class ExpenseRequest extends EntityRequest
 
         // check if we're creating a new vendor
         if ($this->vendor_id == '-1') {
-            $data = [
-                'name' => trim($this->vendor_name)
-            ];
-            if (Vendor::validate($data) === true) {
-                $vendor = app('App\Ninja\Repositories\VendorRepository')->save($data);
-                // TODO change to private id once service is refactored
-                $input['vendor_id'] = $vendor->public_id;
-            } else {
-                $input['vendor_id'] = null;
-            }
+            
+            $supplier = $input['supplier'];
+
+            $client = Client::createNew();
+            $client->fill($supplier);
+            $client->name = trim($this->vendor_name);
+            $client->type = "Supplier";
+            $client->timezone_id = 1;
+            $client->currency_id = 9;
+            $client->save();
+            $input['vendor_id'] = $client->public_id;
+            
         }
 
         $this->replace($input);

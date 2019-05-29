@@ -23,9 +23,9 @@ class ActivityDatatable extends EntityDatatable
                     ];
 
                     if ($model->contact_id
-                        && ! $model->is_system
-                        && in_array($model->activity_type_id, $activityTypes)
-                        && ! in_array($model->ip, ['127.0.0.1', '192.168.255.33'])) {
+                    && ! $model->is_system
+                    && in_array($model->activity_type_id, $activityTypes)
+                    && ! in_array($model->ip, ['127.0.0.1', '192.168.255.33'])) {
                         $ipLookUpLink = IP_LOOKUP_URL . $model->ip;
                         $str .= sprintf(' &nbsp; <i class="fa fa-globe" style="cursor:pointer" title="%s" onclick="openUrl(\'%s\', \'IP Lookup\')"></i>', $model->ip, $ipLookUpLink);
                     }
@@ -53,7 +53,7 @@ class ActivityDatatable extends EntityDatatable
                     $str = trans("texts.activity_{$model->activity_type_id}", $data);
 
                     if ($model->notes) {
-                        $str .= ' - ' . trans("texts.notes_{$model->notes}");
+                        $str .=" ". $model->notes; //' - ' . trans("texts.notes_{$model->notes}");
                     }
 
                     return $str;

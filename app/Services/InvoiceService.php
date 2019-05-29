@@ -9,7 +9,6 @@ use App\Models\Invoice;
 use App\Ninja\Datatables\InvoiceDatatable;
 use App\Ninja\Repositories\ClientRepository;
 use App\Ninja\Repositories\InvoiceRepository;
-use App\Jobs\DownloadInvoices;
 use Auth;
 use Utils;
 
@@ -55,23 +54,23 @@ class InvoiceService extends BaseService
         return $this->invoiceRepo;
     }
 
-    /**
+     /**
      * @param $ids
      * @param $action
      *
      * @return int
      */
-    public function bulk($ids, $action)
-    {
-        if ($action == 'download') {
-            $invoices = $this->getRepo()->findByPublicIdsWithTrashed($ids);
-            dispatch(new DownloadInvoices(Auth::user(), $invoices));
-            return count($invoices);
-        } else {
-            return parent::bulk($ids, $action);
-        }
-    }
-
+     public function bulk($ids, $action)
+     {
+         if ($action == 'download') {
+             $invoices = $this->getRepo()->findByPublicIdsWithTrashed($ids);
+             dispatch(new DownloadInvoices(Auth::user(), $invoices));
+             return count($invoices);
+         } else {
+             return parent::bulk($ids, $action);
+         }
+     }
+     
     /**
      * @param array        $data
      * @param Invoice|null $invoice
@@ -92,9 +91,10 @@ class InvoiceService extends BaseService
                 $canViewClient = Auth::user()->can('view', $client);
             }
             if ($canSaveClient) {
-                $client = $this->clientRepo->save($data['client']);
+                //$client = $this->clientRepo->save($data['client']);
             }
             if ($canSaveClient || $canViewClient) {
+               
                 $data['client_id'] = $client->id;
             }
         }
@@ -140,7 +140,11 @@ class InvoiceService extends BaseService
         } else {
             $quote->markApproved();
         }
-
+        $client = $quote->client;
+        if($client->type == "Lead"){
+            $client->type = "Client";
+            $client->save();
+        }
         return $invitation->invitation_key;
     }
 
@@ -153,8 +157,14 @@ class InvoiceService extends BaseService
                     ->where('invoices.invoice_type_id', '=', $entityType == ENTITY_QUOTE ? INVOICE_TYPE_QUOTE : INVOICE_TYPE_STANDARD);
 
         if (! Utils::hasPermission('view_all')) {
-            $query->where('invoices.user_id', '=', Auth::user()->id);
+
+            $query->where(function($query){
+                $query->where('invoices.user_id', '=', Auth::user()->id)
+                ->orWhere("invoices.tags","like","%,".Auth::user()->id.",%");
+
+            });
         }
+        
 
         return $this->datatableService->createDatatable($datatable, $query);
     }

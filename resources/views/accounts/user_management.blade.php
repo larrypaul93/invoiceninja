@@ -29,7 +29,7 @@
         trans('texts.action'))
       ->setUrl(url('api/users/'))
       ->setOptions('sPaginationType', 'bootstrap')
-      ->setOptions('bFilter', false)
+      ->setOptions('sDom', "<'row'<'span6'f>>t<'row-fluid'<'span6 dt-left'i><'span6 dt-right'p>>l")
       ->setOptions('bAutoWidth', false)
       ->setOptions('aoColumns', [[ "sWidth"=> "20%" ], [ "sWidth"=> "45%" ], ["sWidth"=> "20%"], ["sWidth"=> "15%" ]])
       ->setOptions('aoColumnDefs', [['bSortable'=>false, 'aTargets'=>[3]]])

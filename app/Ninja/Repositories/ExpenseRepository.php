@@ -8,6 +8,7 @@ use App\Models\Vendor;
 use Auth;
 use DB;
 use Utils;
+use Modules\Suppliers\Models\Suppliers;
 
 class ExpenseRepository extends BaseRepository
 {
@@ -35,7 +36,7 @@ class ExpenseRepository extends BaseRepository
 
     public function findVendor($vendorPublicId)
     {
-        $vendorId = Vendor::getPrivateId($vendorPublicId);
+        $vendorId = Suppliers::getPrivateId($vendorPublicId);
 
         $query = $this->find()->where('expenses.vendor_id', '=', $vendorId);
 
@@ -49,7 +50,7 @@ class ExpenseRepository extends BaseRepository
                     ->join('accounts', 'accounts.id', '=', 'expenses.account_id')
                     ->leftjoin('clients', 'clients.id', '=', 'expenses.client_id')
                     ->leftJoin('contacts', 'contacts.client_id', '=', 'clients.id')
-                    ->leftjoin('vendors', 'vendors.id', '=', 'expenses.vendor_id')
+                    ->leftjoin('clients as vendors', 'vendors.id', '=', 'expenses.vendor_id')
                     ->leftJoin('invoices', 'invoices.id', '=', 'expenses.invoice_id')
                     ->leftJoin('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
                     ->where('expenses.account_id', '=', $accountid)
@@ -58,7 +59,8 @@ class ExpenseRepository extends BaseRepository
                     ->where('clients.deleted_at', '=', null)
                     ->where(function ($query) { // handle when client isn't set
                         $query->where('contacts.is_primary', '=', true)
-                              ->orWhere('contacts.is_primary', '=', null);
+                              ->orWhere('contacts.is_primary', '=', null)
+                              ->orWhere('contacts.is_primary', '=', 0);
                     })
                     ->select(
                         DB::raw('COALESCE(expenses.invoice_id, expenses.should_be_invoiced) status'),
@@ -70,6 +72,8 @@ class ExpenseRepository extends BaseRepository
                         DB::raw("CONCAT(expenses.expense_date, expenses.created_at) as expense_date"),
                         'expenses.id',
                         'expenses.is_deleted',
+                        'expenses.tags',
+                        'expenses.invoice_number',
                         'expenses.private_notes',
                         'expenses.public_id',
                         'expenses.invoice_id',
@@ -140,6 +144,7 @@ class ExpenseRepository extends BaseRepository
                 $query->where('expenses.public_notes', 'like', '%'.$filter.'%')
                       ->orWhere('clients.name', 'like', '%'.$filter.'%')
                       ->orWhere('vendors.name', 'like', '%'.$filter.'%')
+                      ->orWhere('expenses.invoice_number', 'like', '%'.$filter.'%')
                       ->orWhere('expense_categories.name', 'like', '%'.$filter.'%');
                 ;
             });
@@ -170,13 +175,17 @@ class ExpenseRepository extends BaseRepository
         // First auto fill
         $expense->fill($input);
 
+        if(Auth::user()->hasPermission("edit_all") && isset($input['tags']) && is_array($input['tags'])){
+            $expense->tags = ",".implode(",",$input['tags']).",";
+        }
+        else if(Auth::user()->hasPermission("edit_all"))  $expense->tags = null;   
         if (isset($input['expense_date'])) {
             $expense->expense_date = Utils::toSqlDate($input['expense_date']);
         }
+
         if (isset($input['payment_date'])) {
             $expense->payment_date = Utils::toSqlDate($input['payment_date']);
         }
-
         if (! $expense->expense_currency_id) {
             $expense->expense_currency_id = \Auth::user()->account->getCurrencyId();
         }
@@ -194,7 +203,7 @@ class ExpenseRepository extends BaseRepository
 
         // Documents
         $document_ids = ! empty($input['document_ids']) ? array_map('intval', $input['document_ids']) : [];
-
+        ;
         foreach ($document_ids as $document_id) {
             // check document completed upload before user submitted form
             if ($document_id) {

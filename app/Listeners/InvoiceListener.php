@@ -48,7 +48,8 @@ class InvoiceListener
     public function updatedInvoice(InvoiceWasUpdated $event)
     {
         $invoice = $event->invoice;
-        $invoice->updatePaidStatus(false, false);
+        if($invoice->invoice_status_id != INVOICE_STATUS_PRE_AUTH)
+            $invoice->updatePaidStatus(false);
     }
 
     /**
@@ -67,11 +68,24 @@ class InvoiceListener
     {
         $payment = $event->payment;
         $invoice = $payment->invoice;
-        $adjustment = $payment->amount * -1;
-        $partial = max(0, $invoice->partial - $payment->amount);
-
-        $invoice->updateBalances($adjustment, $partial);
-        $invoice->updatePaidStatus(true);
+        if($payment->payment_status_id != PAYMENT_STATUS_PRE_AUTH && $payment->payment_status_id != PAYMENT_STATUS_PRE_COMPLETED && $payment->payment_status_id != PAYMENT_STATUS_RETURN){
+            $adjustment = $payment->amount * -1;
+            $partial = max(0, $invoice->partial - $payment->amount);
+            if($invoice->calcInterest()){
+                $invoice->amount += $invoice->calcInterest();
+                $invoice->interest_paid = $invoice->calcInterest();
+    
+            }
+            $invoice->updateBalances($adjustment, $partial);
+            $invoice->updatePaidStatus();
+        }
+        
+        
+        if($payment->payment_status_id == PAYMENT_STATUS_PRE_AUTH){
+            $invoice->invoice_status_id = INVOICE_STATUS_PRE_AUTH;
+            $invoice->save();
+        }
+        
 
         // store a backup of the invoice
         $activity = Activity::wherePaymentId($payment->id)
@@ -91,7 +105,6 @@ class InvoiceListener
         if ($payment->isFailedOrVoided()) {
             return;
         }
-
         $invoice = $payment->invoice;
         $adjustment = $payment->getCompletedAmount();
 
@@ -152,7 +165,7 @@ class InvoiceListener
         if ($payment->isFailedOrVoided()) {
             return;
         }
-
+        
         $invoice = $payment->invoice;
         $adjustment = $payment->getCompletedAmount() * -1;
 
@@ -162,7 +175,6 @@ class InvoiceListener
 
     public function jobFailed(JobExceptionOccurred $exception)
     {
-        /*
         if ($errorEmail = env('ERROR_EMAIL')) {
             \Mail::raw(print_r($exception->data, true), function ($message) use ($errorEmail) {
                 $message->to($errorEmail)
@@ -170,7 +182,6 @@ class InvoiceListener
                         ->subject('Job failed');
             });
         }
-        */
 
         Utils::logError($exception->exception);
     }

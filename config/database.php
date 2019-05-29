@@ -46,7 +46,12 @@ return [
 
     'connections' => [
 
-        // single database setup
+        'sqlite' => [
+            'driver'   => 'sqlite',
+            'database' => storage_path().'/database.sqlite',
+            'prefix'   => '',
+        ],
+
         'mysql' => [
             'driver'    => 'mysql',
             'host'      => env('DB_HOST', 'localhost'),
@@ -59,7 +64,38 @@ return [
             'strict'    => env('DB_STRICT', false),
             'engine'    => 'InnoDB',
         ],
+        'mysqlgd' => [
+            'driver'    => 'mysql',
+            'host'      => env('DB_HOST_GD', 'localhost'),
+            'database'  => env('DB_DATABASE_GD', 'forge'),
+            'username'  => env('DB_USERNAME_GD', 'forge'),
+            'password'  => env('DB_PASSWORD_GD', ''),
+            'charset'   => 'utf8',
+            'collation' => 'utf8_unicode_ci',
+            'prefix'    => '',
+            'strict'    => env('DB_STRICT', false),
+            'engine'    => 'InnoDB',
+        ],
 
+        'pgsql' => [
+            'driver'   => 'pgsql',
+            'host'     => env('DB_HOST', 'localhost'),
+            'database' => env('DB_DATABASE', 'forge'),
+            'username' => env('DB_USERNAME', 'forge'),
+            'password' => env('DB_PASSWORD', ''),
+            'charset'  => 'utf8',
+            'prefix'   => '',
+            'schema'   => 'public',
+        ],
+
+        'sqlsrv' => [
+            'driver'   => 'sqlsrv',
+            'host'     => env('DB_HOST', 'localhost'),
+            'database' => env('DB_DATABASE', 'forge'),
+            'username' => env('DB_USERNAME', 'forge'),
+            'password' => env('DB_PASSWORD', ''),
+            'prefix'   => '',
+        ],
         // multi-database setup
         'db-ninja-0' => [
             'driver'    => 'mysql',

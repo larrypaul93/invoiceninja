@@ -33,17 +33,17 @@ class RecurringExpenseRepository extends BaseRepository
                     ->join('accounts', 'accounts.id', '=', 'recurring_expenses.account_id')
                     ->leftjoin('clients', 'clients.id', '=', 'recurring_expenses.client_id')
                     ->leftJoin('contacts', 'contacts.client_id', '=', 'clients.id')
-                    ->leftjoin('vendors', 'vendors.id', '=', 'recurring_expenses.vendor_id')
+                    ->leftjoin('clients as vendors', 'vendors.id', '=', 'recurring_expenses.vendor_id')
                     ->join('frequencies', 'frequencies.id', '=', 'recurring_expenses.frequency_id')
                     ->leftJoin('expense_categories', 'recurring_expenses.expense_category_id', '=', 'expense_categories.id')
                     ->where('recurring_expenses.account_id', '=', $accountid)
                     ->where('contacts.deleted_at', '=', null)
                     ->where('vendors.deleted_at', '=', null)
                     ->where('clients.deleted_at', '=', null)
-                    ->where(function ($query) { // handle when client isn't set
+                   /*  ->where(function ($query) { // handle when client isn't set
                         $query->where('contacts.is_primary', '=', true)
                               ->orWhere('contacts.is_primary', '=', null);
-                    })
+                    }) */
                     ->select(
                         'recurring_expenses.account_id',
                         'recurring_expenses.amount',
@@ -60,7 +60,6 @@ class RecurringExpenseRepository extends BaseRepository
                         'recurring_expenses.user_id',
                         'recurring_expenses.tax_rate1',
                         'recurring_expenses.tax_rate2',
-                        'recurring_expenses.private_notes',
                         'frequencies.name as frequency',
                         'expense_categories.name as category',
                         'expense_categories.user_id as category_user_id',
@@ -75,7 +74,7 @@ class RecurringExpenseRepository extends BaseRepository
                         'contacts.email',
                         'contacts.last_name',
                         'clients.country_id as client_country_id'
-                    );
+                    )->groupBy("recurring_expenses.id");
 
         $this->applyFilters($query, ENTITY_RECURRING_EXPENSE);
 

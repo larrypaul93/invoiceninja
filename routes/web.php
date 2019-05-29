@@ -13,9 +13,16 @@ Route::get('/invoice_now', 'HomeController@invoiceNow');
 Route::get('/keep_alive', 'HomeController@keepAlive');
 Route::post('/get_started', 'AccountController@getStarted');
 
+
+Route::get('invoice/{key}/view','ClientPortalController@viewClientEmail');
+Route::get('quote/{key}/view','ClientPortalController@viewClientEmail');
+Route::get('service-report/{key}/view','ClientPortalController@viewClientEmail');
+
+
 // Client visible pages
 Route::group(['middleware' => ['lookup:contact', 'auth:client']], function () {
     Route::get('view/{invitation_key}', 'ClientPortalController@view');
+    Route::post('send-email', 'ClientPortalController@sendEmail');
     Route::get('download/{invitation_key}', 'ClientPortalController@download');
     Route::put('sign/{invitation_key}', 'ClientPortalController@sign');
     Route::get('view', 'HomeController@viewLogo');
@@ -41,6 +48,10 @@ Route::group(['middleware' => ['lookup:contact', 'auth:client']], function () {
     Route::get('client/documents/js/{documents}/{filename}', 'ClientPortalController@getDocumentVFSJS');
     Route::get('client/documents/{invitation_key}/{documents}/{filename?}', 'ClientPortalController@getDocument');
     Route::get('client/documents/{invitation_key}/{filename?}', 'ClientPortalController@getInvoiceDocumentsZip');
+    Route::get('client/reports', 'ClientPortalController@reportIndex');
+    Route::get('client/view-report/{report_no}', 'ClientPortalController@viewReport');
+    Route::get('client/report/pdf/{report_no}', 'ClientPortalController@getPdfReport');
+
 
     Route::get('api/client.quotes', ['as' => 'api.client.quotes', 'uses' => 'ClientPortalController@quoteDatatable']);
     Route::get('api/client.credits', ['as' => 'api.client.credits', 'uses' => 'ClientPortalController@creditDatatable']);
@@ -50,6 +61,8 @@ Route::group(['middleware' => ['lookup:contact', 'auth:client']], function () {
     Route::get('api/client.payments', ['as' => 'api.client.payments', 'uses' => 'ClientPortalController@paymentDatatable']);
     Route::get('api/client.tasks', ['as' => 'api.client.tasks', 'uses' => 'ClientPortalController@taskDatatable']);
     Route::get('api/client.activity', ['as' => 'api.client.activity', 'uses' => 'ClientPortalController@activityDatatable']);
+    Route::get('api/client.service_report', ['as' => 'api.client.service_reports', 'uses' => 'ClientPortalController@reportDatatable']);
+
 });
 
 Route::group(['middleware' => 'lookup:license'], function () {
@@ -113,6 +126,7 @@ if (Utils::isTravis()) {
 }
 
 Route::group(['middleware' => ['lookup:user', 'auth:user']], function () {
+    Route::get('/switch_account/{user_id}', 'UserController@switchAccount');
     Route::get('logged_in', 'HomeController@loggedIn');
     Route::get('dashboard', 'DashboardController@index');
     Route::get('dashboard_chart_data/{group_by}/{start_date}/{end_date}/{currency_id}/{include_expenses}', 'DashboardController@chartData');
@@ -137,7 +151,15 @@ Route::group(['middleware' => ['lookup:user', 'auth:user']], function () {
     Route::post('settings/enable_two_factor', 'TwoFactorController@enableTwoFactor');
 
     Route::resource('clients', 'ClientController');
+    Route::resource('contacts', 'ContactController');
+    Route::get('api/contacts', 'ContactController@getDatatable');
+    Route::get('contacts/create/{client_id}', 'ContactController@create');
+    Route::post('contacts/bulk', 'ContactController@bulk');
+
     Route::get('api/clients', 'ClientController@getDatatable');
+    Route::get('api/clients-json', 'ClientController@getClientsJSON');
+    Route::get('api/contacts/{client_id?}', 'ClientController@getContactDatatable');
+
     Route::get('api/activities/{client_id?}', 'ActivityController@getDatatable');
     Route::post('clients/bulk', 'ClientController@bulk');
     Route::get('clients/statement/{client_id}/{status_id?}/{start_date?}/{end_date?}', 'ClientController@statement');
@@ -163,7 +185,12 @@ Route::group(['middleware' => ['lookup:user', 'auth:user']], function () {
     Route::get('quotes/quote_history/{invoice_id}', 'InvoiceController@invoiceHistory');
 
     Route::resource('invoices', 'InvoiceController');
+    route::get("invoice-queue/{queue_id}/delete","InvoiceController@deleteQueue");
+    Route::post('invoices/{invoices}/voided', 'InvoiceController@voidInvoice');
+    
     Route::get('api/invoices/{client_id?}', 'InvoiceController@getDatatable');
+    Route::get('api/invoices/{client_id}/contacts', 'InvoiceController@getContacts');
+    
     Route::get('invoices/create/{client_id?}', 'InvoiceController@create');
     Route::get('recurring_invoices/create/{client_id?}', 'InvoiceController@createRecurring');
     Route::get('recurring_invoices', 'RecurringInvoiceController@index');
@@ -200,6 +227,15 @@ Route::group(['middleware' => ['lookup:user', 'auth:user']], function () {
 
     Route::resource('payments', 'PaymentController');
     Route::get('payments/create/{client_id?}/{invoice_id?}', 'PaymentController@create');
+    Route::get('online-payment/{invitation_key}/{gateway_type?}/{source_id?}', 'PaymentController@showPayment');
+    Route::post('online-payment/{invitation_key}', 'PaymentController@doPayment');
+    Route::get('pre-auth/{invitation_key}/{gateway_type?}/{source_id?}', 'PaymentController@showPreAuthPayment');
+    Route::post('pre-auth/{invitation_key}', 'PaymentController@doPreAuthPayment');
+
+    Route::get('pre-completion/{payment_id}', 'PaymentController@showPreAuthcomplete');
+    Route::post('pre-completion/{payment_id}', 'PaymentController@doPreAuthComplete');
+
+    
     Route::get('api/payments/{client_id?}', 'PaymentController@getDatatable');
     Route::post('payments/bulk', 'PaymentController@bulk');
 
@@ -210,6 +246,8 @@ Route::group(['middleware' => ['lookup:user', 'auth:user']], function () {
 
     Route::get('api/products', 'ProductController@getDatatable');
     Route::resource('products', 'ProductController');
+    Route::get('products/{public_id}/duplicate', 'ProductController@duplicate');
+    
     Route::post('products/bulk', 'ProductController@bulk');
 
     Route::get('/resend_confirmation', 'AccountController@resendConfirmation');

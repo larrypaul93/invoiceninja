@@ -15,6 +15,7 @@ use DateTime;
 use Eloquent;
 use Event;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 use Laracasts\Presenter\PresentableTrait;
 use Session;
 use Utils;
@@ -31,6 +32,7 @@ class Account extends Eloquent
     use SendsEmails;
     use HasLogo;
 
+//protected $table = "acount_comp";
     /**
      * @var string
      */
@@ -100,6 +102,7 @@ class Account extends Eloquent
         'pdf_email_attachment',
         'font_size',
         'invoice_labels',
+        'custom_design',
         'custom_design1',
         'custom_design2',
         'custom_design3',
@@ -117,6 +120,7 @@ class Account extends Eloquent
         'tax_rate1',
         'tax_name2',
         'tax_rate2',
+        'default_tax_rate_id',
         'recurring_hour',
         'invoice_number_pattern',
         'quote_number_pattern',
@@ -217,6 +221,7 @@ class Account extends Eloquent
         ENTITY_QUOTE => 4,
         ENTITY_TASK => 8,
         ENTITY_EXPENSE => 16,
+        ENTITY_VENDOR => 32,
     ];
 
     public static $dashboardSections = [
@@ -250,6 +255,7 @@ class Account extends Eloquent
         'unit_cost',
         'vat_number',
     ];
+
 
     /**
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
@@ -342,10 +348,10 @@ class Account extends Eloquent
     /**
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function defaultDocuments()
-    {
-        return $this->hasMany('App\Models\Document')->whereIsDefault(true);
-    }
+     public function defaultDocuments()
+     {
+         return $this->hasMany('App\Models\Document')->whereIsDefault(true);
+     }
 
     /**
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -414,9 +420,17 @@ class Account extends Eloquent
     /**
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function payment_type()
+     public function payment_type()
+     {
+         return $this->belongsTo('App\Models\PaymentType');
+     }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function default_tax_rate()
     {
-        return $this->belongsTo('App\Models\PaymentType');
+        return $this->belongsTo('App\Models\TaxRate');
     }
 
     /**
@@ -903,6 +917,30 @@ class Account extends Eloquent
     }
 
     /**
+     * @return mixed|null
+     */
+    public function getLogoWidth()
+    {
+        if (! $this->hasLogo()) {
+            return null;
+        }
+
+        return $this->logo_width;
+    }
+
+    /**
+     * @return mixed|null
+     */
+    public function getLogoHeight()
+    {
+        if (! $this->hasLogo()) {
+            return null;
+        }
+
+        return $this->logo_height;
+    }
+
+    /**
      * @param $entityType
      * @param null $clientId
      *
@@ -987,10 +1025,10 @@ class Account extends Eloquent
     /**
      * @return bool
      */
-    public function isNinjaOrLicenseAccount()
-    {
-        return $this->isNinjaAccount() || $this->account_key == NINJA_LICENSE_ACCOUNT_KEY;
-    }
+     public function isNinjaOrLicenseAccount()
+     {
+         return $this->isNinjaAccount() || $this->account_key == NINJA_LICENSE_ACCOUNT_KEY;
+     }
 
     /**
      * @param $plan
@@ -1045,9 +1083,8 @@ class Account extends Eloquent
             // Pro
             case FEATURE_TASKS:
             case FEATURE_EXPENSES:
-                if (Utils::isNinja() && $this->company_id < EXTRAS_GRANDFATHER_COMPANY_ID) {
-                    return true;
-                }
+            case FEATURE_QUOTES:
+                return true;
 
             case FEATURE_CUSTOMIZE_INVOICE_DESIGN:
             case FEATURE_DIFFERENT_DESIGNS:
@@ -1056,7 +1093,7 @@ class Account extends Eloquent
             case FEATURE_CUSTOM_EMAILS:
             case FEATURE_PDF_ATTACHMENT:
             case FEATURE_MORE_INVOICE_DESIGNS:
-            case FEATURE_QUOTES:
+            
             case FEATURE_REPORTS:
             case FEATURE_BUY_NOW_BUTTONS:
             case FEATURE_API:
@@ -1298,6 +1335,8 @@ class Account extends Eloquent
 
         return Carbon::instance($date);
     }
+
+    
 
     /**
      * @param $eventId
@@ -1647,7 +1686,6 @@ class Account extends Eloquent
             $entityType = ENTITY_TASK;
         }
 
-        // note: single & checks bitmask match
         return $this->enabled_modules & static::$modules[$entityType];
     }
 

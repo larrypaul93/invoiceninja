@@ -294,8 +294,8 @@ class AppController extends BaseController
                 Auth::logout();
                 Cache::flush();
                 Session::flush();
-                Artisan::call('migrate', ['--force' => true]);
-                Artisan::call('db:seed', ['--force' => true, '--class' => 'UpdateSeeder']);
+                //Artisan::call('migrate', ['--force' => true]);
+                //Artisan::call('db:seed', ['--force' => true, '--class' => 'UpdateSeeder']);
                 Event::fire(new UserSettingsChanged());
 
                 // legacy fix: check cipher is in .env file

@@ -56,7 +56,7 @@ class RecurringExpenseService extends BaseService
         }
 
         if (isset($data['vendor_id']) && $data['vendor_id']) {
-            $data['vendor_id'] = Vendor::getPrivateId($data['vendor_id']);
+            $data['vendor_id'] = \Modules\Suppliers\Models\Suppliers::getPrivateId($data['vendor_id']);
         }
 
         return $this->recurringExpenseRepo->save($data, $recurringExpense);

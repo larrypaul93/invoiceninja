@@ -7,6 +7,7 @@ use App\Events\ExpenseWasUpdated;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laracasts\Presenter\PresentableTrait;
 use Utils;
+use Auth;
 
 /**
  * Class Expense.
@@ -52,6 +53,8 @@ class Expense extends EntityModel
         'transaction_reference',
         'invoice_documents',
         'should_be_invoiced',
+        'invoice_number'
+
     ];
 
     public static function getImportColumns()
@@ -107,7 +110,7 @@ class Expense extends EntityModel
      */
     public function vendor()
     {
-        return $this->belongsTo('App\Models\Vendor')->withTrashed();
+        return $this->belongsTo('Modules\Suppliers\Models\Suppliers')->withTrashed();
     }
 
     /**
@@ -247,6 +250,32 @@ class Expense extends EntityModel
     {
         if ($bankdId) {
             $query->whereBankId($bankId);
+        }
+
+        return $query;
+    }
+
+    public function scopeScope($query, $publicId = false, $accountId = false)
+    {
+        if (! $accountId) {
+            $accountId = Auth::user()->account_id;
+        }
+
+        $query->where($this->getTable() .'.account_id', '=', $accountId);
+
+        if ($publicId) {
+            if (is_array($publicId)) {
+                $query->whereIn('public_id', $publicId);
+            } else {
+                $query->wherePublicId($publicId);
+            }
+        }
+
+        if (Auth::check() && ! Auth::user()->hasPermission('view_all') && method_exists($this, 'getEntityType') && $this->getEntityType() != ENTITY_TAX_RATE) {
+            $query->where(function($query){
+                $query->where(Utils::pluralizeEntityType($this->getEntityType()) . '.user_id', '=', Auth::user()->id)
+                ->orWhere(Utils::pluralizeEntityType($this->getEntityType()).".tags","like","%,".Auth::user()->id.",%");
+            });
         }
 
         return $query;

@@ -16,8 +16,9 @@ trait ChargesFees
         $account = $this->account;
         $settings = $account->getGatewaySettings($gatewayTypeId);
         $fee = 0;
-
-        if (! $account->gateway_fee_enabled) {
+        $amount = $this->partial > 0 ? $this->partial : $this->balance;
+        $amount += $this->calcInterest();
+        if (! $account->gateway_fee_enabled || $amount <= 500) {
             return false;
         }
 
@@ -42,7 +43,6 @@ trait ChargesFees
                 $fee += $preTaxFee * $settings->fee_tax_rate2 / 100;
             }
         }
-
         return round($fee, 2);
     }
 

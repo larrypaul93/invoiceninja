@@ -9,6 +9,8 @@ use App\Models\Client;
 use App\Models\ExpenseCategory;
 use App\Models\TaxRate;
 use App\Models\Vendor;
+use App\Models\User;
+use Modules\Suppliers\Models\Suppliers;
 use App\Ninja\Datatables\RecurringExpenseDatatable;
 use App\Ninja\Repositories\RecurringExpenseRepository;
 use App\Services\RecurringExpenseService;
@@ -55,7 +57,8 @@ class RecurringExpenseController extends BaseController
     public function create(RecurringExpenseRequest $request)
     {
         if ($request->vendor_id != 0) {
-            $vendor = Vendor::scope($request->vendor_id)->with('vendor_contacts')->firstOrFail();
+           // $vendor = Vendor::scope($request->vendor_id)->with('vendor_contacts')->firstOrFail();
+            $vendor = Suppliers::scope($request->vendor_id)->with('contacts')->firstOrFail();
         } else {
             $vendor = null;
         }
@@ -66,7 +69,7 @@ class RecurringExpenseController extends BaseController
             'method' => 'POST',
             'url' => 'recurring_expenses',
             'title' => trans('texts.new_expense'),
-            'vendors' => Vendor::scope()->with('vendor_contacts')->orderBy('name')->get(),
+            'vendors' => Suppliers::scope()->with('contacts')->orderBy('name')->get(),
             'vendor' => $vendor,
             'clients' => Client::scope()->with('contacts')->orderBy('name')->get(),
             'clientPublicId' => $request->client_id,
@@ -98,7 +101,7 @@ class RecurringExpenseController extends BaseController
             'url' => 'recurring_expenses/'.$expense->public_id,
             'title' => 'Edit Expense',
             'actions' => $actions,
-            'vendors' => Vendor::scope()->with('vendor_contacts')->orderBy('name')->get(),
+            'vendors' => Suppliers::scope()->with('contacts')->orderBy('name')->get(),
             'vendorPublicId' => $expense->vendor ? $expense->vendor->public_id : null,
             'clients' => Client::scope()->with('contacts')->orderBy('name')->get(),
             'clientPublicId' => $expense->client ? $expense->client->public_id : null,
@@ -118,6 +121,8 @@ class RecurringExpenseController extends BaseController
             'categories' => ExpenseCategory::whereAccountId(Auth::user()->account_id)->withArchived()->orderBy('name')->get(),
             'taxRates' => TaxRate::scope()->whereIsInclusive(false)->orderBy('name')->get(),
             'isRecurring' => true,
+             'accountManger' => User::join("role_user","users.id","=","role_user.user_id")->join("roles","roles.id","=","role_user.role_id")->whereIn("roles.name",["STAFF","SALES_REPRESENTATIVE","MANAGEMENT","SUPER_ADMIN"])->orderBy("users.name","asc")->get(["users.id","users.name"])
+
         ];
     }
 

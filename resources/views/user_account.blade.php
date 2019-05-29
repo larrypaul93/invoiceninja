@@ -1,12 +1,17 @@
 <li style="margin-top: 4px; margin-bottom: 4px; min-width: 220px; cursor: pointer">
     @if (Utils::isAdmin())
-        @if (isset($user_id) && $user_id != Auth::user()->id)
-            <a href="{{ URL::to("/switch_account/{$user_id}") }}">
+        @if (isset($account_id) && $account_id != Auth::user()->account_id)
+            <a href="{{ URL::to("/switch_account/{$account_id}") }}">
         @else 
             <a href="{{ URL::to("/settings/company_details") }}">
         @endif
     @else
-        <a href="{{ URL::to("/settings/user_details") }}">
+        
+         @if (isset($account_id) && $account_id != Auth::user()->account_id)
+            <a href="{{ URL::to("/switch_account/{$account_id}") }}">
+        @else 
+           <a href="{{ URL::to("/settings/user_details") }}">
+        @endif
     @endif
 
         @if (!empty($logo_url))

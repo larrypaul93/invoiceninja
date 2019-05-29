@@ -8,6 +8,7 @@ use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Auth;
 use App\Models\LookupContact;
 use Illuminate\Notifications\Notifiable;
 
@@ -16,10 +17,7 @@ use Illuminate\Notifications\Notifiable;
  */
 class Contact extends EntityModel implements AuthenticatableContract, CanResetPasswordContract
 {
-    use SoftDeletes;
-    use Authenticatable;
-    use CanResetPassword;
-    use Notifiable;
+    use SoftDeletes, Authenticatable, CanResetPassword, Notifiable;
 
     protected $guard = 'client';
 
@@ -42,11 +40,32 @@ class Contact extends EntityModel implements AuthenticatableContract, CanResetPa
     protected $fillable = [
         'first_name',
         'last_name',
+        'client_id',
+        'user_id',
+        'username',
+        'position',
+        'type',
+        'status',
+        'phone_business',
+        'phone_home',
+        'phone_main',
+        'phone_fax',
+        'phone_toll_free',
+        'phone_cell',
+        'webmail_email',
+        'webmail_password',
+        'hear_about_us',
+        'website',
+        'personal',
+        'contact_image',
+        'avatar',
         'email',
         'phone',
         'send_invoice',
+        'signature',
         'custom_value1',
         'custom_value2',
+        
     ];
 
     /**
@@ -60,11 +79,39 @@ class Contact extends EntityModel implements AuthenticatableContract, CanResetPa
         'confirmation_code',
     ];
 
+    public function scopeScope($query, $publicId = false, $accountId = false)
+    {
+        if (! $accountId) {
+            $accountId = Auth::user()->account_id;
+        }
+
+       // $query->where($this->getTable() .'.account_id', '=', $accountId);
+
+        if ($publicId) {
+            if (is_array($publicId)) {
+                $query->whereIn('public_id', $publicId);
+            } else {
+                $query->wherePublicId($publicId);
+            }
+        }
+
+        /* if (Auth::check() && ! Auth::user()->hasPermission('view_all') && method_exists($this, 'getEntityType') && $this->getEntityType() != ENTITY_TAX_RATE) {
+            $query->where(Utils::pluralizeEntityType($this->getEntityType()) . '.user_id', '=', Auth::user()->id);
+        } */
+
+        return $query;
+    }
+
+
     /**
      * @var string
      */
     public static $fieldFirstName = 'first_name';
 
+    public function getRoute()
+    {
+        return "/contacts/{$this->public_id}";
+    }
     /**
      * @var string
      */
@@ -104,6 +151,15 @@ class Contact extends EntityModel implements AuthenticatableContract, CanResetPa
         return $this->belongsTo('App\Models\Client')->withTrashed();
     }
 
+    public function addresses(){
+        return $this->hasMany("App\Models\Address","entity_id")->where("address_type","contact");
+    }
+
+    public function billingAddress(){
+        return $this->hasOne('App\Models\Address','entity_id',"id")
+        ->where("address_type","contact")->where("type","Billing");
+        
+    }
     /**
      * @return mixed
      */

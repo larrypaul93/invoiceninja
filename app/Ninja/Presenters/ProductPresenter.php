@@ -2,8 +2,8 @@
 
 namespace App\Ninja\Presenters;
 
-use DropdownButton;
 use App\Libraries\Skype\HeroCard;
+use DropdownButton;
 
 class ProductPresenter extends EntityPresenter
 {
@@ -11,6 +11,8 @@ class ProductPresenter extends EntityPresenter
     {
         return $this->entity->user->getDisplayName();
     }
+
+
 
     public function skypeBot($account)
     {
@@ -43,5 +45,4 @@ class ProductPresenter extends EntityPresenter
 
         return $actions;
     }
-
 }

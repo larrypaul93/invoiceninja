@@ -102,4 +102,107 @@ class TemplateService
 
         return $str;
     }
+
+    public function processClientInvoiceVariables($template, array $data,$_variables)
+    {
+        /** @var \App\Models\Account $account */
+        $account = $data['account'];
+
+        /** @var \App\Models\Client $client */
+        $client = $data['client'];
+
+        $contact = $data['contact'];
+
+        $invoice = $data['invoice'];
+
+        
+        
+
+        
+
+        $variables = [
+            '$footer' => $account->getEmailFooter(),
+            '$emailSignature' => $account->getEmailFooter(),
+            '$client' => $client->getDisplayName(),
+            '$account' => $account->getDisplayName(),
+            '$dueDate' => $account->formatDate($invoice->due_date),
+            '$invoiceDate' => $account->formatDate($invoice->invoice_date),
+            '$contact' => $contact->getDisplayName(),
+            '$firstName' => $contact->first_name,
+            '$amount' => $account->formatMoney($data['amount'], $client),
+            '$total' => $invoice->present()->amount,
+            '$balance' => $invoice->present()->balance,
+            '$invoice' => $invoice->invoice_number,
+            '$quote' => $invoice->invoice_number,
+            '$customClient1' => $client->custom_value1,
+            '$customClient2' => $client->custom_value2,
+            '$customContact1' => $contact->custom_value1,
+            '$customContact2' => $contact->custom_value2,
+            '$customInvoice1' => $invoice->custom_text_value1,
+            '$customInvoice2' => $invoice->custom_text_value2,
+            
+        ];
+
+        $variables = array_merge($variables,$_variables);
+
+        
+
+       
+
+        $str = str_replace(array_keys($variables), array_values($variables), $template);
+
+        
+        
+
+        return $str;
+    }
+
+    public function processClientVariables($template, array $data,$_variables)
+    {
+        /** @var \App\Models\Account $account */
+        $account = $data['account'];
+
+        /** @var \App\Models\Client $client */
+        $client = $data['client'];
+
+        $contact = $data['contact'];
+        $invoice = $data['invoice'];
+       
+
+        
+        
+
+        
+
+        $variables = [
+            '$footer' => $account->getEmailFooter(),
+            '$emailSignature' => $account->getEmailFooter(),
+            '$client' => $client->getDisplayName(),
+            '$account' => $account->getDisplayName(),
+            '$dueDate' => $account->formatDate($invoice->due_date),
+            '$contact' => $contact->getDisplayName(),
+            '$firstName' => $contact->first_name,
+            '$amount' => $account->formatMoney($data['amount'], $client),
+            
+            '$customClient1' => $client->custom_value1,
+            '$customClient2' => $client->custom_value2,
+            '$customContact1' => $contact->custom_value1,
+            '$customContact2' => $contact->custom_value2,
+           
+            
+        ];
+
+        $variables = array_merge($variables,$_variables);
+
+        
+
+       
+
+        $str = str_replace(array_keys($variables), array_values($variables), $template);
+
+        
+        
+
+        return $str;
+    }
 }

@@ -162,15 +162,19 @@ class AccountRepository
                         ->withArchived()
                         ->with(['contacts', 'invoices' => function ($query) use ($user) {
                             $query->withArchived()
-                                  ->where('user_id', '=', $user->id);
+                                ->where('user_id', '=', $user->id);
                         }])->get();
         }
 
         foreach ($clients as $client) {
             if ($client->name) {
+                $suffix = "";
+                if($client->suffix != ''){
+                    $suffix = "(".$client->suffix.")";
+                }
                 $data['clients'][] = [
-                    'value' => ($account->clientNumbersEnabled() && $client->id_number ? $client->id_number . ': ' : '') . $client->name,
-                    'tokens' => implode(',', [$client->name, $client->id_number, $client->vat_number, $client->work_phone]),
+                    'value' => ($account->clientNumbersEnabled() && $client->id_number ? $client->id_number . ': ' : '') . $client->name . $suffix,
+                    'tokens' => implode(',', [$client->name,$client->suffix, $client->id_number, $client->vat_number, $client->work_phone]),
                     'url' => $client->present()->url,
                 ];
             }
@@ -569,6 +573,11 @@ class AccountRepository
 
     public function findUserAccounts($userId1, $userId2 = false)
     {
+
+        $_record = new stdClass();
+        $_record->userId1 = $userId1;
+        $_record->id = 0;
+        return $_record;
         if (! Schema::hasTable('user_accounts')) {
             return false;
         }
@@ -595,23 +604,30 @@ class AccountRepository
         if (! $record) {
             return false;
         }
-
-        $userIds = [];
+        
+        /*$userIds = [];
         for ($i = 1; $i <= 5; $i++) {
             $field = "user_id$i";
             if ($record->$field) {
                 $userIds[] = $record->$field;
             }
-        }
+        }*/
 
-        $users = User::with('account')
-                    ->whereIn('id', $userIds);
+        $accounts = Account::get();
+
+        $users = User::where('id', $record->userId1);
 
         if ($with) {
             $users->with($with);
         }
-
-        return $users->get();
+        $_user = $users->first();
+        $_users = [];
+        foreach ($accounts as $key => $account) {
+            $user = clone $_user;
+            $user->account = $account;
+            $_users[] = $user;
+        }
+        return $_users;
     }
 
     public function prepareUsersData($record)
@@ -711,6 +727,18 @@ class AccountRepository
         })->get();
     }
 
+    public function getReferralCode()
+    {
+        do {
+            $code = strtoupper(str_random(8));
+            $match = User::whereReferralCode($code)
+                        ->withTrashed()
+                        ->first();
+        } while ($match);
+
+        return $code;
+    }
+
     public function createTokens($user, $name)
     {
         $name = trim($name) ?: 'TOKEN';
@@ -739,6 +767,8 @@ class AccountRepository
     public function save($data, $account)
     {
         $account->fill($data);
+        $account->title = $data['title'];
+        $account->header_color = $data['header_color'];
         $account->save();
     }
 }

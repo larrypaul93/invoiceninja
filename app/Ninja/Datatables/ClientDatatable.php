@@ -5,6 +5,8 @@ namespace App\Ninja\Datatables;
 use Auth;
 use URL;
 use Utils;
+use App\Models\Invoice;
+use DB;
 
 class ClientDatatable extends EntityDatatable
 {
@@ -15,47 +17,61 @@ class ClientDatatable extends EntityDatatable
     {
         return [
             [
-                'name',
+                'account',
                 function ($model) {
-                    $str = link_to("clients/{$model->public_id}", $model->name ?: '')->toHtml();
-                    return $this->addNote($str, $model->private_notes);
+                    if($model->suffix && $model->suffix != ''){
+                        return link_to("clients/{$model->public_id}", $model->account ?$model->account." ({$model->suffix})": '')->toHtml();
+                    }
+                    else
+                    return link_to("clients/{$model->public_id}", $model->account ?: '')->toHtml();
                 },
             ],
             [
-                'contact',
-                function ($model) {
-                    return link_to("clients/{$model->public_id}", $model->contact ?: '')->toHtml();
-                },
+                'work_phone',
+                function($model){
+                    return $model->work_phone;
+                }
             ],
             [
-                'email',
-                function ($model) {
-                    return link_to("clients/{$model->public_id}", $model->email ?: '')->toHtml();
-                },
+                'address',
+                function($model){
+                    return $model->address;
+                }
             ],
             [
-                'id_number',
-                function ($model) {
-                    return $model->id_number;
-                },
-                Auth::user()->account->clientNumbersEnabled()
+                'city',
+                function($model){
+                    return $model->city;
+                }
+            ],
+            /*[
+                'state',
+                function($model){
+                    return $model->state;
+                }
             ],
             [
-                'client_created_at',
-                function ($model) {
-                    return Utils::timestampToDateString(strtotime($model->created_at));
-                },
-            ],
-            [
-                'last_login',
-                function ($model) {
-                    return Utils::timestampToDateString(strtotime($model->last_login));
-                },
-            ],
+                'zip',
+                function($model){
+                    return $model->zip;
+                }
+            ],*/
             [
                 'balance',
                 function ($model) {
-                    return Utils::formatMoney($model->balance, $model->currency_id, $model->country_id);
+                    $paid = Invoice::where("client_id",$model->id)
+                        ->where("invoice_status_id",">",1)
+                        ->where("invoice_type_id",1)
+                        ->where("account_id",Auth::user()->account_id)
+                        ->sum("balance");
+                    $interest_balance = Invoice::where("client_id",$model->id)
+                    ->where("invoice_status_id",">",1)
+                    ->where("invoice_type_id",1)
+                    ->where("interest",1)
+                    ->where("account_id",Auth::user()->account_id)
+                    ->whereRaw("DATEDIFF(now(),invoice_date) > 30")
+                    ->sum(DB::raw("0.1 * balance / 100 * DATEDIFF(now(),invoice_date)"));
+                    return Utils::formatMoney($paid+round($interest_balance,2), $model->currency_id, $model->country_id);
                 },
             ],
         ];
@@ -68,6 +84,8 @@ class ClientDatatable extends EntityDatatable
                 trans('texts.edit_client'),
                 function ($model) {
                     return URL::to("clients/{$model->public_id}/edit");
+                    //'http://crm.greaseducks.com/admin/accounts/{{$client->id}}/edit?redirect={{ URL::to('clients/' . $client->public_id ) }}';
+                   // return 'http://crm.greaseducks.com/admin/accounts/'.$model->id.'/edit?redirect='.URL::to('clients/');       
                 },
                 function ($model) {
                     return Auth::user()->can('editByOwner', [ENTITY_CLIENT, $model->user_id]);

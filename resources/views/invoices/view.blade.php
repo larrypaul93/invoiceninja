@@ -38,14 +38,14 @@
         <script type="text/javascript" src="https://js.braintreegateway.com/js/braintree-2.23.0.min.js"></script>
         <script type="text/javascript" >
             $(function() {
-                var paypalLink = $('a[href$="paypal"]'),
+                var paypalLink = $('.dropdown-menu a[href$="paypal"]'),
                     paypalUrl = paypalLink.attr('href'),
                     checkout;
                 paypalLink.parent().attr('id', 'paypal-container');
                 braintree.setup("{{ $transactionToken }}", "custom", {
                     onReady: function (integration) {
                         checkout = integration;
-                        $('a[href$="#braintree_paypal"]').each(function(){
+                        $('.dropdown-menu a[href$="#braintree_paypal"]').each(function(){
                             var el=$(this);
                             el.attr('href', el.attr('href').replace('#braintree_paypal','?device_data='+encodeURIComponent(integration.deviceData)))
                         })
@@ -67,89 +67,40 @@
                 });
                 paypalLink.click(function(e){
                     e.preventDefault();
-					@if ($account->requiresAuthorization($invoice))
-						window.pendingPaymentFunction = checkout.paypal.initAuthFlow;
-						showAuthorizationModal();
-					@else
-                    	checkout.paypal.initAuthFlow();
-					@endif
+                    checkout.paypal.initAuthFlow();
                 })
             });
         </script>
     @elseif(!empty($enableWePayACH))
         <script type="text/javascript" src="https://static.wepay.com/js/tokenization.v2.js"></script>
         <script type="text/javascript">
-			function payWithWepay() {
-				var achLink = $('a[href$="/bank_transfer"]');
-				$('#wepay-error').remove();
-				var email = {!! json_encode($contact->email) !!} || prompt('{{ trans('texts.ach_email_prompt') }}');
-				if (!email) {
-					return;
-				}
-
-				WePay.bank_account.create({
-					'client_id': '{{ WEPAY_CLIENT_ID }}',
-					'email':email
-				}, function(data){
-					dataObj = JSON.parse(data);
-					if(dataObj.bank_account_id) {
-						window.location.href = achLink.attr('href') + '/' + dataObj.bank_account_id + "?details=" + encodeURIComponent(data);
-					} else if(dataObj.error) {
-						$('#wepay-error').remove();
-						achLink.closest('.container').prepend($('<div id="wepay-error" style="margin-top:20px" class="alert alert-danger"></div>').text(dataObj.error_description));
-					}
-				});
-			}
-
             $(function() {
-                var achLink = $('a[href$="/bank_transfer"]');
+                var achLink = $('.dropdown-menu a[href$="/bank_transfer"]'),
+                    achUrl = achLink.attr('href');
                 WePay.set_endpoint('{{ WEPAY_ENVIRONMENT }}');
-				achLink.click(function(e) {
-                	e.preventDefault();
-					@if ($account->requiresAuthorization($invoice))
-						window.pendingPaymentFunction = window.payWithWepay;
-						showAuthorizationModal();
-					@else
-                    	payWithWepay();
-					@endif
+                achLink.click(function(e) {
+                    e.preventDefault();
+
+                    $('#wepay-error').remove();
+                    var email = {!! json_encode($contact->email) !!} || prompt('{{ trans('texts.ach_email_prompt') }}');
+                    if(!email)return;
+
+                    WePay.bank_account.create({
+                        'client_id': '{{ WEPAY_CLIENT_ID }}',
+                        'email':email
+                    }, function(data){
+                        dataObj = JSON.parse(data);
+                        if(dataObj.bank_account_id) {
+                            window.location.href = achLink.attr('href') + '/' + dataObj.bank_account_id + "?details=" + encodeURIComponent(data);
+                        } else if(dataObj.error) {
+                            $('#wepay-error').remove();
+                            achLink.closest('.container').prepend($('<div id="wepay-error" style="margin-top:20px" class="alert alert-danger"></div>').text(dataObj.error_description));
+                        }
+                    });
                 });
             });
         </script>
-	@elseif (! empty($accountGateway) && $accountGateway->getApplePayEnabled())
-		<script type="text/javascript" src="https://js.stripe.com/v3/"></script>
-	    <script type="text/javascript">
-	        // https://stripe.com/docs/stripe-js/elements/payment-request-button
-	        var stripe = Stripe('{{ $accountGateway->getPublishableStripeKey() }}');
-	        var paymentRequest = stripe.paymentRequest({
-	            country: '{{ $invoice->client->getCountryCode() }}',
-	            currency: '{{ strtolower($invoice->client->getCurrencyCode()) }}',
-	            total: {
-	                label: '{{ trans('texts.invoice') . ' ' . $invitation->invoice->invoice_number }}',
-	                amount: {{ $invitation->invoice->getRequestedAmount() * 100 }},
-	            },
-	        });
-
-	        var elements = stripe.elements();
-	        var prButton = elements.create('paymentRequestButton', {
-	            paymentRequest: paymentRequest,
-	        });
-
-	        $(function() {
-	            // Check the availability of the Payment Request API first.
-	            paymentRequest.canMakePayment().then(function(result) {
-	                if (result) {
-	                    // do nothing
-	                } else {
-	                    console.log('not supported');
-						$('#paymentButtons ul.dropdown-menu li').last().remove();
-	                }
-	            });
-
-	        });
-
-	    </script>
-
-	@endif
+    @endif
 @stop
 
 @section('content')
@@ -160,10 +111,20 @@
             @include($partialView)
         @else
             <div id="paymentButtons" class="pull-right" style="text-align:right">
+                {!! Button::normal('Print PDF')
+                        ->withAttributes(['onclick' => 'printPDF()', 'id' => 'printPdfButton'])
+                        ->appendIcon(Icon::create('print'))->large() !!} 
+                <script type="text/javascript">
+                    function printPDF(){
+                        $("body").addClass("pdf-print");
+                        window.print();
+                        $("body").removeClass("pdf-print");
+                    }
+                </script>        
             @if ($invoice->isQuote())
                 {!! Button::normal(trans('texts.download_pdf'))->withAttributes(['onclick' => 'onDownloadClick()'])->large() !!}&nbsp;&nbsp;
                 @if ($showApprove)
-                    {!! Button::success(trans('texts.approve'))->withAttributes(['id' => 'approveButton', 'onclick' => 'onApproveClick()'])->large() !!}
+                    {!! Button::success(trans('texts.approve'))->asLinkTo(URL::to('/approve/' . $invitation->invitation_key))->large() !!}
                 @endif
 			@elseif ( ! $invoice->canBePaid())
 				{!! Button::normal(trans('texts.download_pdf'))->withAttributes(['onclick' => 'onDownloadClick()'])->large() !!}
@@ -172,7 +133,7 @@
                 @if (count($paymentTypes) > 1)
                     {!! DropdownButton::success(trans('texts.pay_now'))->withContents($paymentTypes)->large() !!}
                 @elseif (count($paymentTypes) == 1)
-                    <a href='{!! $paymentURL !!}' class="btn btn-success btn-lg">{{ trans('texts.pay_now') }} {!! $invoice->present()->gatewayFee($gatewayTypeId) !!}</a>
+                    <a href='{!! $paymentURL !!}' class="btn btn-success btn-lg">{{ trans('texts.pay_now') }} <!-- {{ $invoice->present()->gatewayFee($gatewayTypeId) }} --></a>
                 @endif
     		@else
     			{!! Button::normal(trans('texts.download_pdf'))->withAttributes(['onclick' => 'onDownloadClick()'])->large() !!}
@@ -195,8 +156,13 @@
             <div class="invoice-documents">
             <h3>{{ trans('texts.documents_header') }}</h3>
             <ul>
-            @foreach ($invoice->allDocuments() as $document)
+            @foreach ($invoice->documents as $document)
                 <li><a target="_blank" href="{{ $document->getClientUrl($invitation) }}">{{$document->name}} ({{Form::human_filesize($document->size)}})</a></li>
+            @endforeach
+            @foreach ($invoice->expenses as $expense)
+                @foreach ($expense->documents as $document)
+                    <li><a target="_blank" href="{{ $document->getClientUrl($invitation) }}">{{$document->name}} ({{Form::human_filesize($document->size)}})</a></li>
+                @endforeach
             @endforeach
             </ul>
             </div>
@@ -218,14 +184,14 @@
         @endif
 		<script type="text/javascript">
 
-			window.invoice = {!! $invoice !!};
+			window.invoice = {!! $invoice->toJson() !!};
 			invoice.features = {
                 customize_invoice_design:{{ $invoice->client->account->hasFeature(FEATURE_CUSTOMIZE_INVOICE_DESIGN) ? 'true' : 'false' }},
                 remove_created_by:{{ $invoice->client->account->hasFeature(FEATURE_REMOVE_CREATED_BY) ? 'true' : 'false' }},
                 invoice_settings:{{ $invoice->client->account->hasFeature(FEATURE_INVOICE_SETTINGS) ? 'true' : 'false' }}
             };
 			invoice.is_quote = {{ $invoice->isQuote() ? 'true' : 'false' }};
-			invoice.contact = {!! $contact !!};
+			invoice.contact = {!! $contact->toJson() !!};
 
 			function getPDFString(cb) {
     	  	    return generatePDF(invoice, invoice.invoice_design.javascript, true, cb);
@@ -237,22 +203,15 @@
 
 			$(function() {
                 @if (Input::has('phantomjs'))
-					@if (Input::has('phantomjs_balances'))
-						document.write(calculateAmounts(invoice).total_amount);
-						document.close();
-						if (window.hasOwnProperty('pjsc_meta')) {
-							window['pjsc_meta'].remainingTasks--;
-						}
-					@else
-		                doc = getPDFString();
-		                doc.getDataUrl(function(pdfString) {
-		                    document.write(pdfString);
-		                    document.close();
-		                    if (window.hasOwnProperty('pjsc_meta')) {
-		                        window['pjsc_meta'].remainingTasks--;
-		                    }
-		                });
-					@endif
+                    doc = getPDFString();
+                    doc.getDataUrl(function(pdfString) {
+                        document.write(pdfString);
+                        document.close();
+
+                        if (window.hasOwnProperty('pjsc_meta')) {
+                            window['pjsc_meta'].remainingTasks--;
+                        }
+                    });
                 @else
                     refreshPDF();
                 @endif
@@ -261,11 +220,19 @@
 					$('#paymentButtons a').on('click', function(e) {
 						e.preventDefault();
 						window.pendingPaymentHref = $(this).attr('href');
-						showAuthorizationModal();
+						@if ($account->showSignature($invoice))
+							if (window.pendingPaymentInit) {
+								$("#signature").jSignature('reset');
+							}
+						@endif
+						@if ($account->showAcceptTerms($invoice))
+							$('#termsCheckbox').attr('checked', false);
+						@endif
+						$('#authenticationModal').modal('show');
 					});
 
 					@if ($account->showSignature($invoice))
-						$('#authorizationModal').on('shown.bs.modal', function () {
+						$('#authenticationModal').on('shown.bs.modal', function () {
 							if ( ! window.pendingPaymentInit) {
 								window.pendingPaymentInit = true;
 								$("#signature").jSignature().bind('change', function(e) {
@@ -277,33 +244,10 @@
 				@endif
 			});
 
-			function showAuthorizationModal() {
-				@if ($account->showSignature($invoice))
-					if (window.pendingPaymentInit) {
-						$("#signature").jSignature('reset');
-					}
-				@endif
-				@if ($account->showAcceptTerms($invoice))
-					$('#termsCheckbox').attr('checked', false);
-				@endif
-				$('#authorizationModal').modal('show');
-			}
-
-			function onApproveClick() {
-				$('#approveButton').prop('disabled', true);
-				location.href = "{{ url('/approve/' . $invitation->invitation_key) }}";
-			}
-
 			function onDownloadClick() {
-				try {
-					var doc = generatePDF(invoice, invoice.invoice_design.javascript, true);
-	                var fileName = invoice.is_quote ? invoiceLabels.quote : invoiceLabels.invoice;
-					doc.save(fileName + '-' + invoice.invoice_number + '.pdf');
-			    } catch (exception) {
-					if (location.href.indexOf('/view/') > 0) {
-			            location.href = location.href.replace('/view/', '/download/');
-			        }
-				}
+				var doc = generatePDF(invoice, invoice.invoice_design.javascript, true);
+                var fileName = invoice.is_quote ? invoiceLabels.quote : invoiceLabels.invoice;
+				doc.save(fileName + '-' + invoice.invoice_number + '.pdf');
 			}
 
             function showCustomModal() {
@@ -313,7 +257,7 @@
 			function onModalPayNowClick() {
 				@if ($account->showSignature($invoice))
 					var data = {
-						signature: $('#signature').jSignature('getData', 'svgbase64')[1]
+						signature: $('#signature').jSignature('getData', 'image')[1]
 					};
 				@else
 					var data = false;
@@ -332,12 +276,8 @@
 			}
 
 			function redirectToPayment() {
-				$('#authorizationModal').modal('hide');
-				if (window.pendingPaymentFunction) {
-					window.pendingPaymentFunction();
-				} else {
-					location.href = window.pendingPaymentHref;
-				}
+				$('#authenticationModal').modal('hide');
+				location.href = window.pendingPaymentHref;
 			}
 
 			function setModalPayNowEnabled() {
@@ -378,11 +318,7 @@
               </div>
 
              <div class="panel-body">
-				  @if (Utils::isNinjaProd())
-				    {!! nl2br(e($customGatewayText)) !!}
-				  @else
-				    {!! $customGatewayText !!}
-				  @endif
+                  {!! nl2br(e($customGatewayText)) !!}
               </div>
 
               <div class="modal-footer">
@@ -394,7 +330,7 @@
     @endif
 
 	@if ($account->requiresAuthorization($invoice))
-		<div class="modal fade" id="authorizationModal" tabindex="-1" role="dialog" aria-labelledby="authorizationModalLabel" aria-hidden="true">
+		<div class="modal fade" id="authenticationModal" tabindex="-1" role="dialog" aria-labelledby="authenticationModalLabel" aria-hidden="true">
 		  <div class="modal-dialog">
 			<div class="modal-content">
 			  <div class="modal-header">
